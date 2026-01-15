@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./logo.svg" alt="nusm" height="100" />
+  <img src="https://raw.githubusercontent.com/mwillbanks/nusm/refs/heads/main/logo.svg" alt="nusm" height="100" />
 </p>
 
 # nusm 
@@ -21,7 +21,7 @@ is a persistence-ready wrapper around
 ## Install
 
 ```bash
-bun install `nusm`
+bun install nusm
 ```
 
 ## Quick Start
