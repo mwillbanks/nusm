@@ -1,0 +1,95 @@
+{
+  "dependencies": {
+    "@fastify/deepmerge": "^3.1.0",
+    "@tanstack/devtools-event-client": "^0.4.0",
+    "@tanstack/pacer": "^0.17.3",
+    "@tanstack/store": "^0.8.0",
+    "fast-equals": "^6.0.0",
+    "superjson": "^2.2.1"
+  },
+  "description": "Non Uniform State Manager nusm (pronounced \"noose em\") built on @tanstack/store with optional persisted adapters.",
+  "devDependencies": {
+    "@bun-security-scanner/osv": "^1.0.0",
+    "@commitlint/cli": "^20.3.1",
+    "@commitlint/config-conventional": "^20.3.1",
+    "@happy-dom/global-registrator": "^20.3.0",
+    "@release-it/conventional-changelog": "^10.0.4",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
+    "@types/bun": "latest",
+    "@types/react": "^19.2.8",
+    "@types/react-dom": "^19.2.3",
+    "conventional-changelog-conventionalcommits": "^9.1.0",
+    "fake-indexeddb": "^6.2.5",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "release-it": "^19.2.3",
+    "typescript": "^5"
+  },
+  "exports": {
+    ".": {
+      "default": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./react": {
+      "default": "./dist/react/index.js",
+      "types": "./dist/react/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "lint-staged": {
+    "*": [
+      "bunx --bun biome lint --no-errors-on-unmatched --files-ignore-unknown=true"
+    ]
+  },
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "name": "nusm",
+  "peerDependencies": {
+    "@tanstack/devtools": "^0.10.3",
+    "react": "^19.2.0",
+    "typescript": "^5"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/devtools": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "release-it": {
+    "git": {
+      "commitMessage": "chore: release v${version}",
+      "pushRepo": "origin",
+      "requireBranch": "main",
+      "requireCommits": true
+    },
+    "github": {
+      "release": true
+    },
+    "npm": {
+      "publish": true
+    },
+    "plugins": {
+      "@release-it/conventional-changelog": {
+        "header": "# Changelog",
+        "infile": "CHANGELOG.md",
+        "preset": "angular"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "husky",
+    "test": "bun test"
+  },
+  "type": "module",
+  "types": "dist/index.d.ts"
+}
