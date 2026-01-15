@@ -91,5 +91,6 @@
     "test": "bun test"
   },
   "type": "module",
-  "types": "dist/index.d.ts"
+  "types": "dist/index.d.ts",
+  "version": "0.1.0"
 }
