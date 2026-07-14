@@ -3,7 +3,7 @@
 </p>
 
 # nusm 
-Non Uniform State Manager (nusm) > Pronounced **noose em** (/ˈnuːs əm/)
+Non Uniform State Manager (nusm) > Pronounced **noose em** (`/ˈnuːs əm/`)
 is a persistence-ready wrapper around
 [@tanstack/store](https://github.com/TanStack/store) with adapter-based storage
 
