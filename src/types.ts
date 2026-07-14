@@ -9,7 +9,7 @@ export type NusmPacerConfig =
       trailing?: boolean;
     };
 
-export type { Store, Derived, Effect };
+export type { Derived, Effect, Store };
 
 export type AdapterEventType = "set" | "remove" | "clear";
 

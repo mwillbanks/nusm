@@ -62,7 +62,7 @@ const resolveValidateResult = (
   };
 };
 
-export { Derived, Effect, batch };
+export { batch, Derived, Effect };
 
 export function createNusmStore<TState>(
   initialState: TState,
