@@ -64,6 +64,15 @@ Return value:
 
 - A @tanstack/store instance extended with `ready` (resolves when hydration completes).
 
+## Breaking changes and upgrades
+
+nusm now targets the current `@tanstack/store` API directly. The legacy
+`Derived` and `Effect` compatibility exports have been removed, and
+`useStore` accepts only stores returned by `createNusmStore`.
+
+See the [upgrade guide](docs/UPGRADING.md) before upgrading an existing
+integration.
+
 ### Persistence strategies
 
 **Entire store**

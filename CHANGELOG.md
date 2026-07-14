@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Breaking Changes
+
+- Remove the legacy `Derived` and `Effect` compatibility API; nusm now uses the current `@tanstack/store` contracts directly.
+- Restrict `useStore` to nusm stores returned by `createNusmStore`.
+
+### Changed
+
+- Upgrade Bun workspace dependencies and align devtools integration with the current lifecycle API.
+
 # 0.1.0 (2026-01-15)
 
 

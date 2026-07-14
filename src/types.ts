@@ -1,4 +1,4 @@
-import type { Derived, Effect, Store } from "@tanstack/store";
+import type { Store } from "@tanstack/store";
 
 export type NusmPacerConfig =
   | false
@@ -10,7 +10,7 @@ export type NusmPacerConfig =
     };
 
 // fallow-ignore-next-line unused-type
-export type { Derived, Effect, Store };
+export type { Store };
 
 export type AdapterEventType = "set" | "remove" | "clear";
 

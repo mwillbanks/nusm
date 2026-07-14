@@ -1,31 +1,32 @@
 {
   "dependencies": {
-    "@fastify/deepmerge": "^3.1.0",
-    "@tanstack/devtools-event-client": "^0.4.0",
-    "@tanstack/pacer": "^0.17.3",
-    "@tanstack/store": "^0.8.0",
-    "fast-equals": "^6.0.0",
-    "superjson": "^2.2.1"
+    "@fastify/deepmerge": "^3.2.1",
+    "@tanstack/devtools-event-client": "^0.5.0",
+    "@tanstack/pacer": "^0.21.1",
+    "@tanstack/store": "^0.11.0",
+    "fast-equals": "^6.0.2",
+    "superjson": "^2.2.6"
   },
   "description": "Non Uniform State Manager nusm (pronounced \"noose em\") built on @tanstack/store with optional persisted adapters.",
   "devDependencies": {
     "@bun-security-scanner/osv": "^1.0.0",
-    "@commitlint/cli": "^20.3.1",
-    "@commitlint/config-conventional": "^20.3.1",
-    "@happy-dom/global-registrator": "^20.3.0",
-    "@release-it/conventional-changelog": "^10.0.4",
+    "@commitlint/cli": "^21.2.1",
+    "@commitlint/config-conventional": "^21.2.0",
+    "@happy-dom/global-registrator": "^20.10.6",
+    "@release-it/conventional-changelog": "^11.0.1",
+    "@tanstack/devtools": "^0.12.5",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.1",
-    "@types/bun": "latest",
-    "@types/react": "^19.2.8",
+    "@testing-library/react": "^16.3.2",
+    "@types/bun": "^1.3.14",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "conventional-changelog-conventionalcommits": "^9.1.0",
+    "conventional-changelog-conventionalcommits": "^10.2.1",
     "fake-indexeddb": "^6.2.5",
     "husky": "^9.1.7",
-    "lint-staged": "^16.2.7",
-    "release-it": "^19.2.3",
-    "typescript": "^5"
+    "lint-staged": "^17.0.8",
+    "release-it": "^20.2.1",
+    "typescript": "^7.0.2"
   },
   "exports": {
     ".": {
@@ -40,7 +41,8 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "docs"
   ],
   "license": "MIT",
   "lint-staged": {
@@ -51,9 +53,19 @@
   "main": "dist/index.js",
   "module": "dist/index.js",
   "name": "nusm",
+  "overrides": {
+    "ajv": "8.20.0",
+    "basic-ftp": "6.0.1",
+    "defu": "6.1.7",
+    "fast-uri": "4.1.0",
+    "handlebars": "4.7.9",
+    "ip-address": "10.1.1",
+    "js-yaml": "4.2.0",
+    "picomatch": "4.0.5"
+  },
   "peerDependencies": {
-    "@tanstack/devtools": "^0.10.3",
-    "react": "^19.2.0",
+    "@tanstack/devtools": "latest",
+    "react": "^19.2.7",
     "typescript": "^5"
   },
   "peerDependenciesMeta": {
@@ -87,8 +99,9 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "prepare": "husky",
-    "test": "bun test"
+    "prepare": "./node_modules/.bin/husky",
+    "test": "bun test",
+    "test:workspace": "bun test"
   },
   "type": "module",
   "types": "dist/index.d.ts",

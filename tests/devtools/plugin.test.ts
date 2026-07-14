@@ -6,7 +6,7 @@ describe("devtools plugin", () => {
     const plugin = createNusmDevtoolsPlugin();
     const root = document.createElement("div");
 
-    const cleanup = plugin.render(root, "light");
+    plugin.render(root, {} as never);
 
     window.dispatchEvent(
       new CustomEvent("nusm:snapshot", {
@@ -27,7 +27,7 @@ describe("devtools plugin", () => {
     expect(root.textContent).toContain("store");
     expect(root.textContent).toContain("persist_flush_ok");
 
-    // @ts-expect-error - react cleanup, render will return void
-    cleanup();
+    plugin.destroy?.("nusm");
+    expect(root.textContent).toBe("");
   });
 });

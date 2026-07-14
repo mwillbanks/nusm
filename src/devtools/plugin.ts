@@ -7,8 +7,9 @@ type DevtoolsEventDetail<TPayload> = {
 
 export const createNusmDevtoolsPlugin = (): TanStackDevtoolsPlugin => {
   const pluginId = "nusm";
+  let cleanup: (() => void) | undefined;
 
-  return {
+  const plugin: TanStackDevtoolsPlugin = {
     defaultOpen: true,
     id: pluginId,
     name: "nusm",
@@ -63,11 +64,13 @@ export const createNusmDevtoolsPlugin = (): TanStackDevtoolsPlugin => {
       window.addEventListener(`${pluginId}:snapshot`, onSnapshot);
       window.addEventListener(`${pluginId}:event`, onEvent);
 
-      return () => {
+      cleanup = () => {
         window.removeEventListener(`${pluginId}:snapshot`, onSnapshot);
         window.removeEventListener(`${pluginId}:event`, onEvent);
         el.innerHTML = "";
       };
     },
   };
+  plugin.destroy = () => cleanup?.();
+  return plugin;
 };

@@ -1,6 +1,7 @@
 import createDeepmerge from "@fastify/deepmerge";
 import { AsyncDebouncer } from "@tanstack/pacer";
-import { batch, Derived, Effect, Store } from "@tanstack/store";
+import { batch, Store } from "@tanstack/store";
+
 import { createNusmDevtoolsEmitter } from "./devtools/client";
 import type {
   AdapterEvent,
@@ -63,7 +64,7 @@ const resolveValidateResult = (
 };
 
 // fallow-ignore-next-line unused-export
-export { batch, Derived, Effect };
+export { batch, Store };
 
 // fallow-ignore-next-line complexity
 export function createNusmStore<TState>(
@@ -229,8 +230,11 @@ export function createNusmStore<TState>(
     scheduleFlush();
   };
 
+  let previousState = store.state;
   const subscribeToStore = () => {
-    store.subscribe(({ prevVal, currentVal }) => {
+    store.subscribe((currentVal) => {
+      const prevVal = previousState;
+      previousState = currentVal;
       if (!adapter || suppressPersist) return;
 
       if (strategy === "entire") {
@@ -256,7 +260,7 @@ export function createNusmStore<TState>(
 
   const applyState = (nextState: TState) => {
     suppressPersist = true;
-    store.setState(nextState);
+    store.setState(() => nextState);
     suppressPersist = false;
   };
 
@@ -448,7 +452,7 @@ export function createNusmStore<TState>(
 
     const applyExternalState = (nextState: TState) => {
       suppressPersist = true;
-      store.setState(nextState);
+      store.setState(() => nextState);
       suppressPersist = false;
       devtoolsEmitter?.emitEvent({
         key: event.key,
