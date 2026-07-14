@@ -3,6 +3,9 @@
 
 entry = ["src/index.{ts,tsx,js,jsx}", "src/main.{ts,tsx,js,jsx}"]
 
+# Bun resolves this scanner through bunfig.toml rather than a source import.
+ignoreDependencies = ["@bun-security-scanner/osv", "conventional-changelog-conventionalcommits"]
+
 [duplicates]
 # Hide pair-only clones; focus on widespread copy-paste worth refactoring.
 # Lower to 2 to report every duplicate pair.

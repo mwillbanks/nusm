@@ -9,6 +9,7 @@ export type NusmPacerConfig =
       trailing?: boolean;
     };
 
+// fallow-ignore-next-line unused-type
 export type { Derived, Effect, Store };
 
 export type AdapterEventType = "set" | "remove" | "clear";

@@ -62,8 +62,10 @@ const resolveValidateResult = (
   };
 };
 
+// fallow-ignore-next-line unused-export
 export { batch, Derived, Effect };
 
+// fallow-ignore-next-line complexity
 export function createNusmStore<TState>(
   initialState: TState,
   options?: CreateNusmStoreOptions<TState>,
@@ -258,6 +260,7 @@ export function createNusmStore<TState>(
     suppressPersist = false;
   };
 
+  // fallow-ignore-next-line complexity
   const hydrateEntire = async (): Promise<TState> => {
     const key = resolveKey({ kind: "entire" });
     if (!adapter) return initialState;
@@ -319,6 +322,7 @@ export function createNusmStore<TState>(
     }
   };
 
+  // fallow-ignore-next-line complexity
   const hydrateSlices = async (): Promise<TState> => {
     let nextState = initialState;
 
@@ -431,6 +435,7 @@ export function createNusmStore<TState>(
     }
   };
 
+  // fallow-ignore-next-line complexity
   const handleAdapterEvent = async (event: AdapterEvent) => {
     if (!adapter) return;
 
@@ -517,6 +522,7 @@ export function createNusmStore<TState>(
     });
   }
 
+  // fallow-ignore-next-line complexity
   const readPersistedSnapshot = async (): Promise<unknown> => {
     if (!adapter || !storeId) return undefined;
     if (adapter.getAllKeys) {
