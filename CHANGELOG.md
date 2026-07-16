@@ -7,8 +7,6 @@
 
 * add optional nusm devtools inspector ([2e7f134](https://github.com/mwillbanks/nusm/commit/2e7f134c688dd261272aa3e4b8d3ed02cea5a613))
 
-## Unreleased
-
 ### Breaking Changes
 
 - Remove the legacy `Derived` and `Effect` compatibility API; nusm now uses the current `@tanstack/store` contracts directly.
