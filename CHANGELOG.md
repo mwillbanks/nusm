@@ -1,5 +1,12 @@
 # Changelog
 
+# [1.1.0](https://github.com/mwillbanks/nusm/compare/0.1.0...1.1.0) (2026-07-16)
+
+
+### Features
+
+* add optional nusm devtools inspector ([2e7f134](https://github.com/mwillbanks/nusm/commit/2e7f134c688dd261272aa3e4b8d3ed02cea5a613))
+
 ## Unreleased
 
 ### Breaking Changes
