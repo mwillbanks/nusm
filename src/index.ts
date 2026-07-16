@@ -18,6 +18,7 @@ export type {
   NusmPacerConfig,
   NusmStore,
   PersistSlice,
+  ReadonlyHydrationStatus,
   StorageAdapterOptions,
   StorageLike,
 } from "./types";

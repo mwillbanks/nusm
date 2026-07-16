@@ -43,6 +43,10 @@ export interface NusmAdapter {
 export interface PersistSlice<TState> {
   key: string;
   select: (state: TState) => unknown;
+  /**
+   * Applies only this slice's selected value. During missing-value hydration,
+   * nusm rejects definitions whose apply function changes another missing slice.
+   */
   apply: (state: TState, sliceValue: unknown) => TState;
 }
 
@@ -87,28 +91,46 @@ export type NusmEventType =
   | "persist_flush_start"
   | "persist_flush_ok"
   | "persist_flush_error"
-  | "adapter_external_event";
+  | "adapter_external_event"
+  | "devtools_command"
+  | "devtools_command_error"
+  | "devtools_snapshot_error";
 
 export interface NusmEvent {
   ts: number;
   type: NusmEventType;
   storeId: string;
+  instanceId: string;
   key?: string;
   sliceKey?: string;
   detail?: unknown;
 }
 
 export interface NusmDevtoolsSnapshot {
+  eventLogCap?: number;
   storeId: string;
-  memory: unknown;
-  persisted?: unknown;
+  instanceId: string;
+  adapterName?: string;
   hydration: HydrationStatus;
+  initial?: unknown;
   isReady: boolean;
-  pendingKeys?: string[];
   lastFlushAt?: number;
+  memory: unknown;
+  pendingKeys?: string[];
+  persisted?: unknown;
+  persistenceStrategy?: "entire" | "slices";
+  synchronization?: "diverged" | "not_applicable" | "synchronized" | "unknown";
 }
 
+export type ReadonlyHydrationStatus = {
+  readonly byKey: Readonly<Record<string, HydrationState>>;
+  readonly overall: HydrationState;
+};
+
 export interface NusmStore<TState> extends Store<TState> {
+  readonly devtoolsInstanceId: string;
+  readonly hydration: ReadonlyHydrationStatus;
+  readonly isReady: boolean;
   ready: Promise<void>;
 }
 

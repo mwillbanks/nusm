@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-  createNusmStore,
-  type NusmAdapter,
-  type NusmPacerConfig,
-  type PersistSlice,
-} from "../src/index";
+import { createNusmStore, type PersistSlice } from "../src/index";
+import { createMemoryAdapter } from "./helpers/memory-adapter";
 
 const resolveKey = (params: {
   storeId: string;
@@ -13,65 +9,6 @@ const resolveKey = (params: {
 }): string => {
   if (params.kind === "entire") return `nusm:${params.storeId}:entire`;
   return `nusm:${params.storeId}:slice:${params.sliceKey}`;
-};
-
-const createMemoryAdapter = (options?: {
-  pacer?: NusmPacerConfig;
-  delayGetMs?: number;
-  withResolveKey?: boolean;
-  withGetAllKeys?: boolean;
-  errorKeys?: string[];
-  setItemErrorKeys?: string[];
-}) => {
-  const store = new Map<string, unknown>();
-  const listeners = new Set<
-    (event: { type: "set" | "remove" | "clear"; key?: string }) => void
-  >();
-  const setItemCalls: Array<{ key: string; value: unknown }> = [];
-  const errorKeys = new Set(options?.errorKeys ?? []);
-  const setItemErrorKeys = new Set(options?.setItemErrorKeys ?? []);
-
-  const adapter: NusmAdapter = {
-    getAllKeys:
-      options?.withGetAllKeys === false
-        ? undefined
-        : async () => Array.from(store.keys()),
-    getItem: async (key) => {
-      if (options?.delayGetMs) {
-        await new Promise((resolve) => setTimeout(resolve, options.delayGetMs));
-      }
-      if (errorKeys.has(key)) {
-        throw new Error("getItem failed");
-      }
-      return store.get(key) ?? null;
-    },
-    name: "memory",
-    pacer: options?.pacer,
-    removeItem: async (key) => {
-      store.delete(key);
-    },
-    resolveKey: options?.withResolveKey === false ? undefined : resolveKey,
-    setItem: async (key, value) => {
-      if (setItemErrorKeys.has(key)) {
-        throw new Error("setItem failed");
-      }
-      store.set(key, value);
-      setItemCalls.push({ key, value });
-    },
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-  };
-
-  return {
-    adapter,
-    emit: (event: { type: "set" | "remove" | "clear"; key?: string }) => {
-      for (const listener of listeners) listener(event);
-    },
-    setItemCalls,
-    store,
-  };
 };
 
 describe("nusm hydration", () => {
@@ -407,8 +344,8 @@ describe("nusm persistence scheduling", () => {
         storeId: "debounce",
       },
     );
-
     await nusm.ready;
+    setItemCalls.length = 0;
     nusm.setState((state) => ({ count: state.count + 1 }));
     nusm.setState((state) => ({ count: state.count + 1 }));
     nusm.setState((state) => ({ count: state.count + 1 }));
@@ -434,8 +371,8 @@ describe("nusm persistence scheduling", () => {
         storeId: "immediate",
       },
     );
-
     await nusm.ready;
+    setItemCalls.length = 0;
     nusm.setState((state) => ({ count: state.count + 1 }));
 
     expect(setItemCalls.length).toBe(1);
@@ -504,8 +441,8 @@ describe("nusm persistence scheduling", () => {
         storeId,
       },
     );
-
     await nusm.ready;
+    errors.length = 0;
     nusm.setState((state) => ({ count: state.count + 1 }));
 
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -905,7 +842,7 @@ describe("nusm devtools snapshots", () => {
     return snapshots;
   };
 
-  test("includes persisted values when getAllKeys is available", async () => {
+  test("uses a round-trippable persisted value when getAllKeys is available", async () => {
     const { adapter, store } = createMemoryAdapter();
     const storeId = "snapshot-keys";
     const key = resolveKey({ kind: "entire", storeId });
@@ -921,13 +858,12 @@ describe("nusm devtools snapshots", () => {
           storeId,
         },
       );
-
       await nusm.ready;
     });
 
     expect(
-      snapshots.some((shot) =>
-        Boolean((shot.persisted as Record<string, unknown> | undefined)?.[key]),
+      snapshots.some(
+        (shot) => (shot.persisted as { value?: number })?.value === 3,
       ),
     ).toBe(true);
   });

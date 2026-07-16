@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ESNext", "DOM"],
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "paths": {
+      "react": ["../node_modules/react"],
+      "react-dom": ["../node_modules/react-dom"],
+      "react-dom/*": ["../node_modules/react-dom/*"],
+      "react/*": ["../node_modules/react/*"]
+    },
+    "strict": true,
+    "target": "ESNext"
+  },
+  "include": ["src", "server.ts", "test-setup.ts"]
+}

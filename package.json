@@ -15,6 +15,7 @@
     "@happy-dom/global-registrator": "^20.10.6",
     "@release-it/conventional-changelog": "^11.0.1",
     "@tanstack/devtools": "^0.12.5",
+    "@tanstack/devtools-utils": "^0.6.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -25,6 +26,9 @@
     "fake-indexeddb": "^6.2.5",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.8",
+    "lucide-react": "^1.24.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "release-it": "^20.2.1",
     "typescript": "^7.0.2"
   },
@@ -32,6 +36,10 @@
     ".": {
       "default": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./devtools": {
+      "default": "./dist/devtools/index.js",
+      "types": "./dist/devtools/index.d.ts"
     },
     "./react": {
       "default": "./dist/react/index.js",
@@ -64,15 +72,27 @@
     "picomatch": "4.0.5"
   },
   "peerDependencies": {
-    "@tanstack/devtools": "latest",
-    "react": "^19.2.7",
-    "typescript": "^5"
+    "@tanstack/devtools": "^0.12.5",
+    "@tanstack/devtools-utils": "^0.6.0",
+    "lucide-react": ">=0.468.0",
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0",
+    "typescript": ">=5"
   },
   "peerDependenciesMeta": {
     "@tanstack/devtools": {
       "optional": true
     },
+    "@tanstack/devtools-utils": {
+      "optional": true
+    },
+    "lucide-react": {
+      "optional": true
+    },
     "react": {
+      "optional": true
+    },
+    "react-dom": {
       "optional": true
     }
   },
@@ -99,6 +119,10 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "example:build": "bun run --cwd example build",
+    "example:devtools": "bun run build && bun run --cwd example dev",
+    "example:serve": "bun run --cwd example serve",
+    "example:test": "bun run --cwd example test",
     "prepare": "./node_modules/.bin/husky",
     "test": "bun test",
     "test:workspace": "bun test"

@@ -3,6 +3,6 @@ scanner = "@bun-security-scanner/osv"
 
 [test]
 coverage = true
-coveragePathIgnorePatterns = "./testSetup.ts"
+coveragePathIgnorePatterns = ["dist/**", "example/**", "tests/**", "testSetup.ts"]
 coverageThreshold = 0.9
 preload = ["./testSetup.ts"]

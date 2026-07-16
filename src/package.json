@@ -1,0 +1,43 @@
+{
+  "dependencies": {
+    "@fastify/deepmerge": "^3.2.1",
+    "@tanstack/devtools-event-client": "^0.5.0",
+    "@tanstack/pacer": "^0.21.1",
+    "@tanstack/store": "^0.11.0",
+    "fast-equals": "^6.0.2",
+    "superjson": "^2.2.6"
+  },
+  "exports": {
+    ".": "./index.ts",
+    "./devtools": "./devtools/index.ts",
+    "./react": "./react/index.ts"
+  },
+  "name": "nusm",
+  "peerDependencies": {
+    "@tanstack/devtools": "^0.12.5",
+    "@tanstack/devtools-utils": "^0.6.0",
+    "lucide-react": ">=0.468.0",
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/devtools": {
+      "optional": true
+    },
+    "@tanstack/devtools-utils": {
+      "optional": true
+    },
+    "lucide-react": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "private": true,
+  "type": "module",
+  "version": "0.1.0"
+}

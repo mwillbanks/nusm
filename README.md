@@ -16,12 +16,12 @@ is a persistence-ready wrapper around
 - Debounced persistence via @tanstack/pacer
 - Adapter events for cross-tab or external updates
 - React hooks (via `nusm/react`)
-- @tanstack/devtools event support (panel coming soon)
+- Optional TanStack Devtools store inspector (`nusm/devtools`)
 
 ## Install
 
 ```bash
-bun install nusm
+bun add nusm
 ```
 
 ## Quick Start
@@ -62,7 +62,7 @@ const nusm = createNusmStore(initialState, {
 
 Return value:
 
-- A @tanstack/store instance extended with `ready` (resolves when hydration completes).
+- A @tanstack/store instance extended with `ready`, readonly `isReady`, and an immutable `hydration` snapshot. `hydration.overall` and each `hydration.byKey` entry report `pending`, `hydrated`, `discarded`, `error`, or `not_configured`; read a fresh snapshot after lifecycle events rather than mutating it.
 
 ## Breaking changes and upgrades
 
@@ -98,6 +98,8 @@ persist: {
 
 ### Hydration configuration
 
+When a configured persistence unit is missing, nusm writes the corresponding initial entire-store value or selected slice before `ready` resolves. A successfully hydrated store therefore has a real adapter baseline; zero pending keys means those initial writes have completed, not that persistence was skipped. Existing, discarded, and failed adapter values retain their normal hydration policy.
+
 ```ts
 persist: {
 	strategy: 'entire',
@@ -132,7 +134,8 @@ type NusmAdapter = {
 
 Notes:
 
-- `getAllKeys` enables more complete persisted snapshots.
+- `getAllKeys` is optional adapter-wide enumeration for callers that need it;
+  devtools snapshots read configured persistence units through `resolveKey`.
 - `resolveKey` lets you control key layout. When omitted, nusm uses
 	`nusm:<storeId>:entire` and `nusm:<storeId>:slice:<sliceKey>`.
 - `subscribe` should emit adapter events for cross-tab or external updates.
@@ -186,7 +189,7 @@ Options:
 - `deserialize`: custom deserializer (default: `superjson.parse`).
 - `pacer`: persistence debouncer configuration.
 
-### IndexDB
+### IndexedDB
 
 ```ts
 import { createIndexDbAdapter } from 'nusm'
@@ -247,3 +250,50 @@ bun run build
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## TanStack Devtools inspector
+
+nusm ships a framework-neutral event bridge plus an optional React panel built with
+TanStack `devtools-utils`. The root `nusm` entry never imports React or the
+Devtools shell.
+
+```bash
+bun add -d @tanstack/devtools @tanstack/devtools-utils \
+  @tanstack/react-devtools lucide-react react react-dom
+```
+
+```tsx
+import { TanStackDevtools } from "@tanstack/react-devtools"
+import { createNusmDevtoolsPlugin } from "nusm/devtools"
+
+const nusmPlugin = createNusmDevtoolsPlugin()
+
+export function DevelopmentTools() {
+  return <TanStackDevtools plugins={[nusmPlugin]} />
+}
+```
+
+Instrument individual stores with `devtools: true` or a named configuration.
+The panel provides a compact icon rail, searchable store sidebar, memory and
+adapter tabs, path/value filtering, timeline history, copy, add, edit, remove,
+raw JSON, reset, and refresh controls. Every mutation is sent through the typed
+TanStack event bus and acknowledged by the target store.
+
+Use `createNoOpNusmDevtoolsPlugin()` when a framework integration needs a stable
+plugin shape without mounting the inspector. Never enable state inspection in
+an untrusted production environment.
+
+See [the full Devtools guide](docs/devtools.md) and the [example walkthrough](example/README.md), then run the standalone showcase from the repository root:
+
+```bash
+bun run example:devtools   # Bun server with hot reload
+bun run example:test       # React and multi-adapter tests
+bun run example:build      # production HTML/CSS/JS bundle
+bun run example:serve      # serve the production bundle
+```
+
+The [`example` walkthrough](example/README.md) covers a Bun-native React application—no Vite or
+similar build system—and exercises memory, localStorage, sessionStorage, and
+IndexedDB stores. Its Command center, Stores, and Signals controls select real
+visible views, and the canonical nusm mark identifies both the application and
+the custom inspector panel. Open `http://127.0.0.1:4173/` during hot-reload development. Production serving keeps the inspector disabled unless `?devtools` is present, so use `http://127.0.0.1:4173/?devtools` only in a trusted environment. See the [browser runtime QA receipt](example/browser-qa.md) for the rebuilt panel, real adapter inspection, live mutation, responsive layout, and console checks.
