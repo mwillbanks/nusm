@@ -5,7 +5,8 @@ entry = ["src/index.{ts,tsx,js,jsx}", "src/main.{ts,tsx,js,jsx}", "example/serve
 
 # Bun resolves this scanner through bunfig.toml rather than a source import.
 # The standalone example satisfies optional peers imported through its local nusm source dependency.
-ignoreDependencies = ["@bun-security-scanner/osv", "@happy-dom/global-registrator", "@tanstack/devtools", "@tanstack/devtools-utils", "conventional-changelog-conventionalcommits", "nusm"]
+# The website collections alias resolves generated Fumadocs MDX modules.
+ignoreDependencies = ["@bun-security-scanner/osv", "@happy-dom/global-registrator", "@tanstack/devtools", "@tanstack/devtools-utils", "collections", "conventional-changelog-conventionalcommits", "nusm"]
 
 [duplicates]
 # Hide pair-only clones; focus on widespread copy-paste worth refactoring.

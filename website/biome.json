@@ -1,0 +1,11 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
+  "assist": {
+    "enabled": false
+  },
+  "extends": ["../biome.json"],
+  "root": false,
+  "files": {
+    "includes": ["**", "!src/routeTree.gen.ts"]
+  }
+}

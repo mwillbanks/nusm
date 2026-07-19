@@ -5,7 +5,9 @@
 # nusm 
 Non Uniform State Manager (nusm) > Pronounced **noose em** (`/ˈnuːs əm/`)
 is a persistence-ready wrapper around
-[@tanstack/store](https://github.com/TanStack/store) with adapter-based storage
+[@tanstack/store](https://github.com/TanStack/store) with adapter-based storage.
+
+Explore the full documentation at [mwillbanks.github.io/nusm](https://mwillbanks.github.io/nusm/).
 
 ## Features
 
@@ -201,7 +203,7 @@ Options:
 
 - `dbName`: database name (default: `nusm`).
 - `storeName`: object store name (default: `nusm`).
-- `version`: database version (default: `1`).
+- `version`: reserved in the public options; the current adapter opens version `1`.
 - `serialize`: custom serializer (default: `superjson.stringify`).
 - `deserialize`: custom deserializer (default: `superjson.parse`).
 - `pacer`: persistence debouncer configuration (default: trailing, 100ms).

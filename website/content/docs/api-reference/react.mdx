@@ -1,0 +1,43 @@
+---
+title: useStore
+description: React selector hook signature and equality behavior.
+icon: Atom
+---
+
+```ts
+function useStore<TState, TSelected = TState>(
+  store: NusmStore<TState>,
+  selector?: (state: TState) => TSelected,
+  options?: { equal?: boolean },
+): TSelected
+```
+
+Import it from the React-specific entry point:
+
+```ts
+import { useStore } from "nusm/react"
+```
+
+## Parameters
+
+| Parameter | Required | Description |
+| --- | ---: | --- |
+| `store` | Yes | A store returned by `createNusmStore` |
+| `selector` | No | Maps full state to the value the component needs; defaults to identity |
+| `options.equal` | No | `false` uses shallow equality; `true` uses deep equality |
+
+## Examples
+
+```tsx
+const count = useStore(counterStore, (state) => state.count)
+const fullState = useStore(counterStore)
+const profile = useStore(userStore, (state) => state.profile, {
+  equal: true,
+})
+```
+
+The hook uses React's `useSyncExternalStore` and preserves the previous selected reference when the configured equality function considers the next selection equal.
+
+## Package boundary
+
+The root `nusm` entry does not import React. Applications that do not use React can stay entirely on the core entry point.

@@ -1,0 +1,103 @@
+---
+title: Hydration
+description: Control how persisted values become live state, and observe every unit's readiness.
+icon: RefreshCcw
+---
+
+Hydration reconciles initial application state with adapter state. It starts when `createNusmStore` runs and is represented by `ready`, `isReady`, and `hydration`.
+
+## Lifecycle
+
+1. Resolve and validate configured persistence keys.
+2. Read the entire value or each configured slice.
+3. Optionally discard or validate persisted data.
+4. Merge or apply accepted values.
+5. Write initial baselines for missing units.
+6. Mark the store ready and process queued external adapter events.
+
+```ts
+await store.ready
+
+store.isReady
+store.hydration.overall
+store.hydration.byKey
+```
+
+Possible states are `pending`, `hydrated`, `discarded`, `error`, and `not_configured`.
+
+## Validate or transform data
+
+A validator can return a boolean or a result object. The object form may replace old data with a migrated value:
+
+```ts
+persist: {
+  strategy: "entire",
+  hydrate: {
+    validate(persisted) {
+      if (!isLegacySettings(persisted)) {
+        return { ok: false }
+      }
+
+      return {
+        ok: true,
+        value: {
+          theme: persisted.darkMode ? "dark" : "light",
+        },
+      }
+    },
+  },
+}
+```
+
+Returning `{ ok: false }` preserves initial state for that unit and records `discarded`.
+
+## Discard on demand
+
+```ts
+hydrate: {
+  discardPersisted: () =>
+    new URLSearchParams(window.location.search).has("reset-state"),
+}
+```
+
+`discardPersisted` also accepts a boolean. Use it for an intentional reset path or a known incompatible schema version.
+
+## Customize merging
+
+Entire-store persistence deep-merges by default, with arrays replaced by persisted arrays. Override it when you need schema-aware behavior:
+
+```ts
+hydrate: {
+  merge: ({ initial, persisted }) => {
+    const saved = persisted as Partial<typeof initial>
+    return {
+      ...initial,
+      ...saved,
+      sessionStartedAt: initial.sessionStartedAt,
+    }
+  },
+}
+```
+
+Slice persistence does not call `merge`; each accepted value goes through that slice's `apply` function.
+
+## Missing values
+
+When a configured value does not exist, nusm writes the valid initial entire-store value or selected slice before `ready` resolves. This creates a real adapter baseline for Devtools and later synchronization.
+
+Existing discarded or unreadable values are not silently overwritten by this first-run behavior.
+
+## Error behavior
+
+Provide `onError` for operational reporting:
+
+```ts
+const store = createNusmStore(initialState, {
+  adapter,
+  onError: (error) => reportPersistenceError(error),
+  persist: { strategy: "entire" },
+  storeId: "settings",
+})
+```
+
+Read, baseline-write, and later persistence failures are reported. Fatal setup or hydration failures reject `ready`; per-unit failures are also visible in `hydration.byKey`.

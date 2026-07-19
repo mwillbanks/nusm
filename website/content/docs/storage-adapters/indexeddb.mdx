@@ -1,0 +1,66 @@
+---
+title: IndexedDB
+description: Persist asynchronous browser state in a dedicated database and object store.
+icon: Cylinder
+---
+
+```ts
+import { createIndexDbAdapter, createNusmStore } from "nusm"
+
+const activity = createNusmStore(
+  { entries: [] as Array<{ id: string; message: string }> },
+  {
+    adapter: createIndexDbAdapter({
+      dbName: "acme-app",
+      storeName: "state",
+    }),
+    persist: { strategy: "entire" },
+    storeId: "activity",
+  },
+)
+
+await activity.ready
+```
+
+## Options
+
+```ts
+interface IndexDbAdapterOptions {
+  dbName?: string
+  storeName?: string
+  version?: number
+  serialize?: (value: unknown) => string
+  deserialize?: (raw: string) => unknown
+  pacer?: NusmPacerConfig
+}
+```
+
+| Option | Default | Purpose |
+| --- | --- | --- |
+| `dbName` | `"nusm"` | IndexedDB database name |
+| `storeName` | `"nusm"` | Object store used for persistence units |
+| `version` | Reserved; runtime currently opens version `1` | Public option retained for compatibility |
+| `serialize` | `superjson.stringify` | Encode values before storing them |
+| `deserialize` | `superjson.parse` | Decode stored strings |
+| `pacer` | trailing, 100 ms | Control asynchronous write scheduling |
+
+## Behavior
+
+The adapter creates its object store during the database upgrade event when needed. Reads, writes, removes, key enumeration, and clear operations run through IndexedDB transactions.
+
+Physical keys follow the standard nusm layout:
+
+```text
+nusm:<storeId>:entire
+nusm:<storeId>:slice:<sliceKey>
+```
+
+## When to choose it
+
+IndexedDB is a good fit when state is too substantial for synchronous Web Storage, writes are naturally asynchronous, or you want a dedicated object store boundary.
+
+It does not currently provide an external-event subscription. If multiple contexts must coordinate IndexedDB changes, implement a custom adapter that combines IndexedDB with a signaling mechanism such as `BroadcastChannel`.
+
+## Browser boundary
+
+`createIndexDbAdapter` requires the global `indexedDB` API and throws outside a compatible browser environment. Construct it on the client. Tests can provide an IndexedDB-compatible global such as `fake-indexeddb` before adapter creation.

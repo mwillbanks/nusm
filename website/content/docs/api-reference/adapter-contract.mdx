@@ -1,0 +1,102 @@
+---
+title: Adapter Contract
+description: Reference for NusmAdapter, browser adapter options, events, and pacing.
+icon: Cable
+---
+
+## NusmAdapter
+
+```ts
+interface NusmAdapter {
+  name: string
+
+  getItem(key: string): unknown | null | Promise<unknown | null>
+  setItem(key: string, value: unknown): void | Promise<void>
+  removeItem(key: string): void | Promise<void>
+
+  getAllKeys?(): string[] | Promise<string[]>
+  clear?(): void | Promise<void>
+
+  subscribe?(listener: (event: AdapterEvent) => void): () => void
+
+  resolveKey?(params: {
+    storeId: string
+    sliceKey?: string
+    kind: "entire" | "slice"
+  }): string
+
+  pacer?: NusmPacerConfig
+}
+```
+
+## AdapterEvent
+
+```ts
+type AdapterEventType = "set" | "remove" | "clear"
+
+interface AdapterEvent {
+  type: AdapterEventType
+  key?: string
+}
+```
+
+Provide a key for `set` and `remove`. An adapter-wide `clear` can omit it.
+
+## NusmPacerConfig
+
+```ts
+type NusmPacerConfig =
+  | false
+  | {
+      wait?: number
+      maxWait?: number
+      leading?: boolean
+      trailing?: boolean
+    }
+```
+
+`false` bypasses the debouncer. The current runtime forwards `wait`, `leading`, and `trailing` to the `AsyncDebouncer`; `maxWait` remains in the public type but is not forwarded yet.
+
+## StorageAdapterOptions
+
+Used by `createLocalStorageAdapter` and `createSessionStorageAdapter`:
+
+```ts
+interface StorageAdapterOptions {
+  storage?: StorageLike
+  prefix?: string
+  serialize?: (value: unknown) => string
+  deserialize?: (raw: string) => unknown
+  pacer?: NusmPacerConfig
+}
+```
+
+## StorageLike
+
+```ts
+interface StorageLike {
+  getItem(key: string): string | null
+  setItem(key: string, value: string): void
+  removeItem(key: string): void
+  clear?(): void
+  key?(index: number): string | null
+  readonly length?: number
+}
+```
+
+`key` and `length` enable `getAllKeys`; `clear` enables adapter clearing.
+
+## IndexDbAdapterOptions
+
+```ts
+interface IndexDbAdapterOptions {
+  dbName?: string
+  storeName?: string
+  version?: number
+  serialize?: (value: unknown) => string
+  deserialize?: (raw: string) => unknown
+  pacer?: NusmPacerConfig
+}
+```
+
+See [Custom Adapters](/docs/storage-adapters/custom-adapters) for implementation guidance and invariants.

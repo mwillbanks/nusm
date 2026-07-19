@@ -1,0 +1,53 @@
+---
+title: Adapter Overview
+description: Choose a built-in browser adapter or implement the NusmAdapter contract for another storage system.
+icon: Database
+---
+
+Adapters own the physical persistence boundary: how values are read, written, removed, keyed, serialized, scheduled, and observed.
+
+## Built-in adapters
+
+| Adapter | Lifetime | Typical use | Default pacing |
+| --- | --- | --- | --- |
+| [localStorage](/docs/storage-adapters/local-storage) | Across reloads and browser restarts | Preferences, drafts, small durable state | Trailing 50 ms |
+| [sessionStorage](/docs/storage-adapters/session-storage) | Current browser tab session | Wizard progress, tab-scoped UI state | Trailing 50 ms |
+| [IndexedDB](/docs/storage-adapters/indexeddb) | Across reloads and browser restarts | Larger or async browser state | Trailing 100 ms |
+| [Custom](/docs/storage-adapters/custom-adapters) | Your system decides | Memory, native storage, remote caches, encrypted stores | Your policy |
+
+## Shared browser adapter behavior
+
+Built-in adapters:
+
+- Serialize values with SuperJSON by default.
+- Let you provide matching `serialize` and `deserialize` functions.
+- Expose adapter-wide key enumeration through `getAllKeys`.
+- Produce stable physical keys through `resolveKey`.
+- Report local/session storage changes from other browser contexts through `subscribe`.
+
+## Browser-only construction
+
+The built-in adapters rely on browser globals by default. Construct them in a browser environment, or inject a compatible implementation for local and session storage:
+
+```ts
+const adapter = createLocalStorageAdapter({
+  storage: myStorageLike,
+})
+```
+
+`StorageLike` needs `getItem`, `setItem`, and `removeItem`. Enumeration and clearing are optional.
+
+## Key format
+
+Local and session storage use a configurable prefix:
+
+```text
+<prefix>:<storeId>:entire
+<prefix>:<storeId>:slice:<sliceKey>
+```
+
+The default prefix is `nusm`. IndexedDB uses the same key shape inside its object store.
+
+## Pick deliberately
+
+Choose based on ownership and lifetime, not only capacity. `sessionStorage` is isolated per tab. `localStorage` is synchronous and shared by same-origin tabs. IndexedDB is asynchronous and better suited to more substantial browser data. A custom adapter is the right boundary when storage semantics belong to your platform.

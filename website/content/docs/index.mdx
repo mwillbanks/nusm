@@ -1,0 +1,78 @@
+---
+title: Overview
+description: A persistence-ready state manager built on the small, reactive core of TanStack Store.
+icon: Sparkles
+---
+
+**nusm** — Non Uniform State Manager, pronounced “noose em” — is a typed wrapper around [`@tanstack/store`](https://tanstack.com/store) for application state that needs to survive reloads, tabs, or storage boundaries.
+
+It keeps the store model intentionally familiar: read `store.state`, call `store.setState`, and subscribe to changes. When you opt into an adapter, nusm adds a deliberate lifecycle around that core: hydrate, validate, merge, persist, synchronize, and inspect.
+
+## Why nusm?
+
+Most state starts simple and only later needs persistence. Adding it at that point often spreads storage reads, serialization, hydration flags, migrations, and write scheduling throughout the application. nusm keeps those concerns behind one store boundary.
+
+| Capability | What it gives you |
+| --- | --- |
+| TanStack Store semantics | A small observable store and familiar `setState` updates |
+| Adapter-based persistence | Browser adapters out of the box and a compact custom contract |
+| Entire or slice persistence | Store everything, or write only the fields that should survive |
+| Controlled hydration | Validate, transform, discard, or merge persisted values |
+| Scheduled writes | Debounce persistence with `@tanstack/pacer` or write immediately |
+| External synchronization | React to adapter events such as browser storage changes |
+| React integration | A selector-based `useStore` hook with shallow or deep equality |
+| Optional Devtools | Inspect and edit memory, persisted state, hydration, and history |
+
+## The mental model
+
+```text
+initial state
+    │
+    ├── no adapter ───────────────► ready immediately
+    │
+    └── adapter configured
+          │
+          ├── read persisted units
+          ├── validate / discard / merge
+          ├── seed missing values
+          └── resolve store.ready ─► updates persist through the adapter
+```
+
+A nusm store is still a TanStack `Store`. Persistence is additive. Without an adapter, `ready` resolves immediately and `hydration.overall` is `not_configured`.
+
+## A small example
+
+```ts
+import {
+  createLocalStorageAdapter,
+  createNusmStore,
+} from "nusm"
+
+type Preferences = {
+  accent: "cyan" | "violet"
+  compact: boolean
+}
+
+export const preferences = createNusmStore<Preferences>(
+  { accent: "cyan", compact: false },
+  {
+    adapter: createLocalStorageAdapter(),
+    devtools: { name: "Preferences" },
+    persist: { strategy: "entire" },
+    storeId: "preferences",
+  },
+)
+
+await preferences.ready
+preferences.setState((state) => ({ ...state, compact: true }))
+```
+
+The adapter key is `nusm:preferences:entire`. Updates are serialized with SuperJSON and, for local storage, written on a trailing 50 ms schedule.
+
+## Where to go next
+
+- [Quick Start](/docs/getting-started/quick-start) builds a complete store step by step.
+- [Persistence strategies](/docs/concepts/persistence) explains entire-store and slice persistence.
+- [Comparison with TanStack Store](/docs/comparison) helps you decide which layer you need.
+- [Storage adapters](/docs/storage-adapters) covers every built-in adapter.
+- [Devtools](/docs/devtools) adds live inspection without changing the root entry point.

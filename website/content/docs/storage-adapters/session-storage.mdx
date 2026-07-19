@@ -1,0 +1,53 @@
+---
+title: sessionStorage
+description: Keep tab-scoped state through reloads without carrying it into a future browser session.
+icon: PanelsTopLeft
+---
+
+```ts
+import { createNusmStore, createSessionStorageAdapter } from "nusm"
+
+const checkout = createNusmStore(
+  { completedSteps: [], currentStep: "contact" },
+  {
+    adapter: createSessionStorageAdapter(),
+    persist: { strategy: "entire" },
+    storeId: "checkout",
+  },
+)
+```
+
+session storage survives reloads in the current tab, but is cleared when that page session ends. It is a good fit for workflows that should not reappear in a later browsing session.
+
+## Options
+
+`createSessionStorageAdapter` accepts the same `StorageAdapterOptions` as the local storage adapter:
+
+| Option | Default | Purpose |
+| --- | --- | --- |
+| `storage` | `window.sessionStorage` | Inject another synchronous Storage-like target |
+| `prefix` | `"nusm"` | Namespace all physical keys |
+| `serialize` | `superjson.stringify` | Encode state before writing |
+| `deserialize` | `superjson.parse` | Decode matching stored values |
+| `pacer` | trailing, 50 ms | Control write scheduling |
+
+```ts
+const adapter = createSessionStorageAdapter({
+  prefix: "checkout-v2",
+  pacer: false,
+})
+```
+
+## When to choose it
+
+Use session storage for:
+
+- Multi-step flows that may reload.
+- Tab-specific filters or temporary drafts.
+- State that should disappear after the tab session.
+
+Use local storage when state should return in a future browser session, or IndexedDB when the data is larger and benefits from an asynchronous API.
+
+## Browser boundary
+
+The default adapter requires `window.sessionStorage`. For tests, SSR setup, or another host, provide a `StorageLike` implementation explicitly. Do not construct the browser default during server module evaluation.

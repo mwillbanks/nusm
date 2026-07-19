@@ -1,0 +1,12 @@
+{
+  "title": "nusm",
+  "pages": [
+    "index",
+    "getting-started",
+    "concepts",
+    "comparison",
+    "storage-adapters",
+    "devtools",
+    "api-reference"
+  ]
+}

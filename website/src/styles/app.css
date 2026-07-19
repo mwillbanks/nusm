@@ -1,0 +1,89 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+
+:root {
+  --fd-layout-width: 92rem;
+  --color-fd-primary: oklch(0.43 0.14 225);
+  --color-fd-primary-foreground: oklch(0.99 0.01 210);
+}
+
+.dark {
+  --color-fd-primary: oklch(0.78 0.13 210);
+  --color-fd-primary-foreground: oklch(0.16 0.035 235);
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+body {
+  font-family: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  background-image:
+    radial-gradient(
+      circle at 12% -10%,
+      rgb(34 211 238 / 0.08),
+      transparent 32rem
+    ),
+    radial-gradient(circle at 85% 5%, rgb(59 130 246 / 0.07), transparent 28rem);
+}
+
+.home-shell {
+  background-image: linear-gradient(
+    to right,
+    color-mix(in oklab, var(--color-fd-border) 35%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 4rem 4rem;
+  background-position: center top;
+}
+
+.hero-glow {
+  position: absolute;
+  top: 3rem;
+  left: 18%;
+  width: min(60vw, 52rem);
+  height: 24rem;
+  border-radius: 999px;
+  background: rgb(34 211 238 / 0.1);
+  filter: blur(90px);
+  pointer-events: none;
+}
+
+.hero-gradient {
+  color: transparent;
+  background-image: linear-gradient(100deg, #0891b2 5%, #2563eb 65%, #7c3aed);
+  background-clip: text;
+}
+
+.feature-card + .feature-card {
+  border-top: 1px solid var(--color-fd-border);
+}
+
+@media (min-width: 48rem) {
+  .feature-card + .feature-card {
+    border-top: 0;
+    border-left: 1px solid var(--color-fd-border);
+  }
+}
+
+.code-window {
+  transform: perspective(1200px) rotateY(-2deg) rotateX(1deg);
+}
+
+.journey-card {
+  min-height: 18rem;
+}
+
+:where(#nd-page) {
+  --fd-page-width: 54rem;
+}
+
+:where(#nd-page) article {
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+:where(#nd-page) h2 {
+  letter-spacing: -0.025em;
+}

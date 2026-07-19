@@ -1,0 +1,70 @@
+---
+title: React Integration
+description: Select nusm state in React with useSyncExternalStore and configurable equality.
+icon: Atom
+---
+
+React bindings live in `nusm/react`, keeping React out of the core package path.
+
+```tsx
+import { useStore } from "nusm/react"
+```
+
+## Select the smallest value you need
+
+```tsx
+const displayName = useStore(
+  accountStore,
+  (state) => state.profile.displayName,
+)
+```
+
+The selector runs against the current store state. By default, the selected value uses shallow equality from `fast-equals` to preserve the previous reference when the result is equivalent.
+
+## Read the entire state
+
+The selector is optional:
+
+```tsx
+const state = useStore(accountStore)
+```
+
+Prefer a narrow selector for components that only need one field.
+
+## Deep equality
+
+Set `equal: true` when a selector produces a nested structure whose deep equality should preserve its previous reference:
+
+```tsx
+const profile = useStore(
+  accountStore,
+  (state) => state.profile,
+  { equal: true },
+)
+```
+
+Deep comparison has a cost. Use it deliberately rather than as a default for every selector.
+
+## Hydration-aware rendering
+
+Persistence begins immediately when the store is created. If your view cannot show initial state before hydration, gate that view on `ready`:
+
+```tsx
+import { useEffect, useState } from "react"
+import { useStore } from "nusm/react"
+import { preferencesStore } from "./stores/preferences"
+
+export function Preferences() {
+  const [ready, setReady] = useState(preferencesStore.isReady)
+  const theme = useStore(preferencesStore, (state) => state.theme)
+
+  useEffect(() => {
+    void preferencesStore.ready.then(() => setReady(true))
+  }, [])
+
+  if (!ready) return <p>Restoring preferences…</p>
+  return <p>Theme: {theme}</p>
+}
+```
+
+Create stores outside component render so identity, hydration, subscriptions, and persistence scheduling remain stable.

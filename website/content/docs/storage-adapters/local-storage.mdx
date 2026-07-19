@@ -1,0 +1,71 @@
+---
+title: localStorage
+description: Persist small durable state across reloads with same-origin browser synchronization.
+icon: HardDrive
+---
+
+```ts
+import { createLocalStorageAdapter, createNusmStore } from "nusm"
+
+const preferences = createNusmStore(
+  { density: "comfortable", theme: "system" },
+  {
+    adapter: createLocalStorageAdapter(),
+    persist: { strategy: "entire" },
+    storeId: "preferences",
+  },
+)
+```
+
+## Options
+
+```ts
+interface StorageAdapterOptions {
+  storage?: StorageLike
+  prefix?: string
+  serialize?: (value: unknown) => string
+  deserialize?: (raw: string) => unknown
+  pacer?: false | {
+    wait?: number
+    maxWait?: number
+    leading?: boolean
+    trailing?: boolean
+  }
+}
+```
+
+| Option | Default | Purpose |
+| --- | --- | --- |
+| `storage` | `window.localStorage` | Inject another synchronous Storage-like target |
+| `prefix` | `"nusm"` | Namespace all physical keys |
+| `serialize` | `superjson.stringify` | Encode state before writing |
+| `deserialize` | `superjson.parse` | Decode matching stored values |
+| `pacer` | trailing, 50 ms | Control write scheduling |
+
+## Custom namespace and serializer
+
+```ts
+const adapter = createLocalStorageAdapter({
+  prefix: "acme-state",
+  serialize: JSON.stringify,
+  deserialize: JSON.parse,
+  pacer: { trailing: true, wait: 150 },
+})
+```
+
+The current scheduler uses `wait`, `leading`, and `trailing`; `maxWait` remains in the public type but is not forwarded yet.
+
+Always change serializer and deserializer together. Existing values written in another format need an explicit migration or a compatible decoder.
+
+## Cross-tab updates
+
+The adapter listens for browser `storage` events and emits `set` or `remove` events for matching prefixed keys. nusm then reloads the configured persistence unit and updates live state without writing the same external value back.
+
+The browser does not send a `storage` event back to the tab that performed the write; nusm already has that tab's current in-memory state.
+
+## Constraints
+
+- Browser storage is synchronous; keep values reasonably small.
+- Quota and privacy-mode failures reach `onError`.
+- Any script on the same origin can read local storage. Do not put secrets there.
+- Construct the default adapter only where `window.localStorage` exists.

@@ -1,0 +1,163 @@
+---
+title: Custom Adapters
+description: Implement the NusmAdapter contract for memory, native storage, encrypted persistence, or another platform.
+icon: PlugZap
+---
+
+A custom adapter is a small object that owns storage operations and, optionally, key layout, event delivery, enumeration, clearing, and write pacing.
+
+## The contract
+
+```ts
+import type { NusmAdapter } from "nusm"
+
+type NusmAdapter = {
+  name: string
+  getItem(key: string): unknown | null | Promise<unknown | null>
+  setItem(key: string, value: unknown): void | Promise<void>
+  removeItem(key: string): void | Promise<void>
+  getAllKeys?(): string[] | Promise<string[]>
+  clear?(): void | Promise<void>
+  subscribe?(
+    listener: (event: {
+      type: "set" | "remove" | "clear"
+      key?: string
+    }) => void,
+  ): () => void
+  resolveKey?(params: {
+    storeId: string
+    sliceKey?: string
+    kind: "entire" | "slice"
+  }): string
+  pacer?: false | {
+    wait?: number
+    maxWait?: number
+    leading?: boolean
+    trailing?: boolean
+  }
+}
+```
+
+Only `name`, `getItem`, `setItem`, and `removeItem` are required.
+
+## A complete memory adapter
+
+```ts title="memory-adapter.ts"
+import type { AdapterEvent, NusmAdapter } from "nusm"
+
+export function createMemoryAdapter(): NusmAdapter {
+  const data = new Map<string, unknown>()
+  const listeners = new Set<(event: AdapterEvent) => void>()
+
+  const emit = (event: AdapterEvent) => {
+    for (const listener of listeners) listener(event)
+  }
+
+  return {
+    name: "memory",
+    pacer: false,
+
+    getItem: (key) => data.get(key) ?? null,
+
+    setItem: (key, value) => {
+      data.set(key, value)
+      emit({ key, type: "set" })
+    },
+
+    removeItem: (key) => {
+      data.delete(key)
+      emit({ key, type: "remove" })
+    },
+
+    getAllKeys: () => [...data.keys()],
+
+    clear: () => {
+      data.clear()
+      emit({ type: "clear" })
+    },
+
+    subscribe: (listener) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+
+    resolveKey: ({ storeId, kind, sliceKey }) =>
+      kind === "entire"
+        ? `memory:${storeId}:entire`
+        : `memory:${storeId}:slice:${sliceKey}`,
+  }
+}
+```
+
+nusm suppresses adapter events that correspond to its own recent writes, preventing a local echo from applying the same state twice.
+
+## Required-method semantics
+
+### `getItem`
+
+Return the decoded application value or `null` when the key does not exist. Throw or reject for operational failures; do not turn read errors into `null` unless “missing” is truly the intended meaning.
+
+### `setItem`
+
+Store the complete value for one physical persistence unit. nusm handles whole-store and selected-slice payloads before this boundary. If your backend stores strings or bytes, serialize here.
+
+### `removeItem`
+
+Remove one physical key. A later external `remove` event resets an entire store or the matching slice to its initial value.
+
+## Optional capabilities
+
+### `resolveKey`
+
+Use this to map logical identities into your platform. It must return a non-empty, stable, distinct key for every configured unit. nusm calls it once per unit during configuration.
+
+```ts
+resolveKey: ({ storeId, kind, sliceKey }) =>
+  JSON.stringify({ app: "portal", storeId, kind, sliceKey })
+```
+
+### `subscribe`
+
+Call the listener only for real changes in the storage system. Include `key` for `set` and `remove`; omit it for an adapter-wide `clear`. Return an unsubscribe function.
+
+When an external `set` arrives, nusm reads the affected key and applies it. Events received before hydration finishes are queued.
+
+### `getAllKeys` and `clear`
+
+These support adapter-wide management for callers. nusm Devtools reads configured persistence units directly through resolved keys, so key enumeration is not required for inspection.
+
+### `pacer`
+
+Set `false` to begin writes immediately, omit it for zero-wait trailing scheduling, or provide an `@tanstack/pacer` debouncer configuration.
+
+## Serialization and validation
+
+The adapter owns physical serialization. The store owns application-level hydration validation:
+
+```ts
+const store = createNusmStore(initialState, {
+  adapter: encryptedAdapter,
+  persist: {
+    strategy: "entire",
+    hydrate: {
+      validate: (persisted) => validateAndMigrate(persisted),
+    },
+  },
+  storeId: "secure-preferences",
+})
+```
+
+Keep encryption, transport encoding, and backend errors inside the adapter. Keep schema checks and migrations in `hydrate.validate` where they can be reasoned about with the initial state.
+
+## Design checklist
+
+Before shipping a custom adapter, verify:
+
+- Missing keys return exactly `null`.
+- Async failures reject and reach the store's `onError` path.
+- Key resolution is stable, non-empty, and collision-free.
+- Serialization round-trips every state type you support.
+- `subscribe` does not leak listeners and identifies affected keys.
+- `clear` semantics match the adapter's actual namespace.
+- Pacing matches backend cost and consistency requirements.
+- Sensitive data is protected appropriately for the storage environment.

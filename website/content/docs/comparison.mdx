@@ -1,0 +1,103 @@
+---
+title: nusm vs. @tanstack/store
+description: Understand what nusm adds, what remains unchanged, and when the smaller TanStack Store surface is enough.
+icon: Scale
+---
+
+nusm is not a competing reactive engine. It builds directly on [`@tanstack/store`](https://tanstack.com/store), returns a TanStack `Store`, and adds a persistence lifecycle around it.
+
+## At a glance
+
+| Capability | `@tanstack/store` | `nusm` |
+| --- | ---: | ---: |
+| Observable state container | Yes | Yes, inherited |
+| `state`, `setState`, and `subscribe` | Yes | Yes, inherited |
+| Batched updates | Yes | Yes, re-exported `batch` |
+| Built-in persistence lifecycle | No | Yes |
+| Entire-store persistence | Bring your own | Built in |
+| Selective slice persistence | Bring your own | Built in |
+| Async hydration readiness | Bring your own | `ready`, `isReady`, `hydration` |
+| Validation and migration hook | Bring your own | `hydrate.validate` |
+| Merge policy | Bring your own | Deep merge or custom `hydrate.merge` |
+| Debounced writes | Bring your own | Adapter `pacer` policy |
+| Browser storage adapters | No | localStorage, sessionStorage, IndexedDB |
+| Custom storage contract | Application-specific | Typed `NusmAdapter` |
+| Cross-tab adapter events | Bring your own | Supported through `subscribe` |
+| React selector hook | Separate integration | `nusm/react` |
+| Store-specific inspector | General TanStack tooling | Optional `nusm/devtools` plugin |
+
+## What stays the same
+
+The everyday update model remains TanStack Store:
+
+```ts
+store.state
+store.setState((state) => ({ ...state, count: state.count + 1 }))
+store.subscribe(listener)
+```
+
+nusm also re-exports `Store` and `batch` from the root package:
+
+```ts
+import { batch, Store } from "nusm"
+```
+
+This makes nusm a low-friction choice when some stores need persistence and others do not.
+
+## What nusm adds
+
+`createNusmStore` returns a `NusmStore<TState>`, which extends `Store<TState>` with:
+
+```ts
+interface NusmStore<TState> extends Store<TState> {
+  readonly devtoolsInstanceId: string
+  readonly hydration: ReadonlyHydrationStatus
+  readonly isReady: boolean
+  ready: Promise<void>
+}
+```
+
+The adapter and persistence options define how state crosses the boundary between volatile memory and durable storage.
+
+## Choose @tanstack/store directly when
+
+- State is intentionally ephemeral.
+- You do not need a hydration boundary.
+- Storage is already owned by another application layer.
+- You want the smallest possible API and dependency surface.
+
+## Choose nusm when
+
+- A store must survive a reload or browser session.
+- You need selected fields persisted without splitting one logical store.
+- Stored data needs validation, transformation, or custom merging.
+- Rapid updates should be paced before storage writes.
+- Cross-tab or external storage changes should flow back into live state.
+- Developers need to compare memory and adapter state in Devtools.
+
+## Migration from TanStack Store
+
+Start by replacing store construction. Existing update and subscription code can usually remain unchanged.
+
+```ts
+// Before
+import { Store } from "@tanstack/store"
+const settings = new Store({ theme: "system" })
+
+// After
+import { createLocalStorageAdapter, createNusmStore } from "nusm"
+const settings = createNusmStore(
+  { theme: "system" },
+  {
+    adapter: createLocalStorageAdapter(),
+    persist: { strategy: "entire" },
+    storeId: "settings",
+  },
+)
+
+await settings.ready
+```
+
+Add the readiness boundary before code that assumes persisted state is present. Then decide whether entire-store or slice persistence best matches the data's ownership.
+
+> nusm targets the current TanStack Store API directly. It does not provide legacy `Derived` or `Effect` compatibility exports.

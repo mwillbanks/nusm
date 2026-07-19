@@ -1,0 +1,114 @@
+---
+title: Devtools
+description: Inspect live and persisted state, hydration, history, and targeted mutations through TanStack Devtools.
+icon: PanelsTopLeft
+---
+
+nusm ships an optional TanStack Devtools plugin. The core `nusm` and `nusm/react` entry points do not load React or the inspector; only `nusm/devtools` crosses that optional boundary.
+
+## Install the optional shell
+
+```bash
+bun add -d \
+  @tanstack/devtools \
+  @tanstack/devtools-utils \
+  @tanstack/react-devtools \
+  lucide-react \
+  react \
+  react-dom
+```
+
+## Instrument a store
+
+Use `devtools: true` for the store id, or provide a display name and event-history cap:
+
+```ts
+import { createLocalStorageAdapter, createNusmStore } from "nusm"
+
+export const settings = createNusmStore(
+  { profile: { displayName: "Ada" }, shortcuts: true },
+  {
+    adapter: createLocalStorageAdapter(),
+    devtools: { name: "Settings", eventLogCap: 200 },
+    persist: { strategy: "entire" },
+    storeId: "settings",
+  },
+)
+```
+
+`eventLogCap` defaults to 100, accepts positive safe integers, and is capped at 10,000.
+
+If persistence is enabled, use an explicit `storeId`. Without one, a non-empty Devtools name can provide the derived store id, but an explicit stable id is easier to treat as an application contract.
+
+## Mount the plugin
+
+```tsx
+import { TanStackDevtools } from "@tanstack/react-devtools"
+import { createNusmDevtoolsPlugin } from "nusm/devtools"
+
+const nusmPlugin = createNusmDevtoolsPlugin()
+
+export function DevelopmentTools() {
+  return <TanStackDevtools plugins={[nusmPlugin]} />
+}
+```
+
+Create the plugin once at module scope, not during every render.
+
+## Keep production shape stable
+
+For an SSR or production branch that should preserve the component shape without enabling inspection:
+
+```tsx
+import {
+  createNoOpNusmDevtoolsPlugin,
+} from "nusm/devtools"
+
+export const nusmPlugin = import.meta.env.DEV
+  ? createNusmDevtoolsPlugin()
+  : createNoOpNusmDevtoolsPlugin()
+```
+
+Devtools snapshots may contain credentials, personal data, or internal state. Keep instrumentation and the inspector out of untrusted production builds.
+
+## Inspector workflow
+
+The nusm panel provides:
+
+- A store sidebar with store id, adapter, connection state, and runtime identity.
+- Overview, Memory, Adapter, and Timeline views.
+- Search across paths, keys, and value previews.
+- Formatted JSON inspection and copy actions.
+- Add, edit, and remove operations for memory or persisted paths.
+- Raw JSON replacement after validation.
+- Memory reset and non-mutating refresh controls.
+- Hydration status, pending persistence keys, last flush time, and synchronization health.
+- Responsive light and dark presentation that follows the TanStack shell.
+
+## Memory and persistence are separate
+
+A memory edit changes only the live store. A persisted edit changes only the adapter value. The panel makes divergence visible rather than silently forcing both locations together.
+
+Path commands accept dotted or indexed paths such as:
+
+```text
+profile.displayName
+items[0].title
+```
+
+Unsafe prototype segments, invalid array gaps, accessors, and values that cannot safely round-trip through the protocol are rejected.
+
+## Identity and duplicate names
+
+Each runtime store receives a unique `devtoolsInstanceId`. Commands include both that instance id and the display store id, so two stores with the same normalized name remain visible and mutations reach exactly one instance.
+
+## Event timeline
+
+Stores emit lifecycle events including:
+
+- `hydrate_start`, `hydrate_applied`, `hydrate_discarded`, and `hydrate_error`
+- `persist_scheduled`, `persist_flush_start`, `persist_flush_ok`, and `persist_flush_error`
+- `adapter_external_event`
+- `devtools_command`, `devtools_command_error`, and `devtools_snapshot_error`
+
+Use the timeline to answer whether a value came from initial state, hydration, an application update, an external adapter event, or a Devtools command.

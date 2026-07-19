@@ -1,0 +1,114 @@
+---
+title: Persistence Strategies
+description: Persist the entire state object or isolate durable slices with explicit selectors and appliers.
+icon: Layers
+---
+
+Persistence is opt-in. Pass both an `adapter` and a stable `storeId`, then choose one strategy.
+
+## Entire-store persistence
+
+Use `entire` when the whole state object belongs to one persistence lifecycle.
+
+```ts
+const store = createNusmStore(
+  {
+    filters: { status: "all" },
+    layout: "comfortable",
+  },
+  {
+    adapter: createLocalStorageAdapter(),
+    persist: { strategy: "entire" },
+    storeId: "workspace-preferences",
+  },
+)
+```
+
+The default physical key is:
+
+```text
+nusm:workspace-preferences:entire
+```
+
+On hydration, persisted data deep-merges over initial state. Arrays are replaced rather than concatenated. Supply `hydrate.merge` when your schema needs another policy.
+
+## Slice persistence
+
+Use `slices` when only part of the store should survive, when fields need separate keys, or when unrelated updates should not schedule a write.
+
+```ts
+import type { PersistSlice } from "nusm"
+
+type WorkspaceState = {
+  draft: string
+  filters: { status: "all" | "open" | "closed" }
+  online: boolean
+}
+
+const slices: Array<PersistSlice<WorkspaceState>> = [
+  {
+    key: "filters",
+    select: (state) => state.filters,
+    apply: (state, value) => ({
+      ...state,
+      filters: value as WorkspaceState["filters"],
+    }),
+  },
+]
+
+const store = createNusmStore<WorkspaceState>(
+  { draft: "", filters: { status: "all" }, online: true },
+  {
+    adapter: createLocalStorageAdapter(),
+    persist: { slices, strategy: "slices" },
+    storeId: "workspace",
+  },
+)
+```
+
+Only a change where `Object.is(previousSelected, nextSelected)` is false schedules that slice. The default key is `nusm:workspace:slice:filters`.
+
+### Slice invariants
+
+- Logical `key` values must be unique.
+- Adapter-resolved physical keys must be non-empty and unique.
+- `apply` must change only the slice represented by its matching `select`.
+- Multiple missing slices are validated together before baselines are written.
+- A clear event resets configured slices to their initial selected values while leaving non-persisted fields alone.
+
+These constraints prevent one slice from silently changing another slice's durable baseline.
+
+## Write scheduling
+
+Each adapter owns its pacing policy:
+
+```ts
+const adapter = createLocalStorageAdapter({
+  pacer: {
+    leading: false,
+    trailing: true,
+    wait: 100,
+  },
+})
+```
+
+Set `pacer: false` to start a write immediately for every scheduled persistence operation:
+
+```ts
+const adapter = createSessionStorageAdapter({ pacer: false })
+```
+
+The built-in defaults are 50 ms trailing for local and session storage, and 100 ms trailing for IndexedDB.
+
+## Key layout
+
+Built-in adapters accept `prefix` where applicable. A custom adapter can take complete control with `resolveKey`:
+
+```ts
+resolveKey: ({ storeId, kind, sliceKey }) =>
+  kind === "entire"
+    ? `app:${storeId}`
+    : `app:${storeId}:${sliceKey}`
+```
+
+nusm resolves each configured unit once and reuses that key for hydration, writes, external events, and Devtools commands.

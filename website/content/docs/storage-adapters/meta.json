@@ -1,0 +1,10 @@
+{
+  "title": "Storage Adapters",
+  "pages": [
+    "index",
+    "local-storage",
+    "session-storage",
+    "indexeddb",
+    "custom-adapters"
+  ]
+}

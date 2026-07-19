@@ -1,0 +1,123 @@
+---
+title: createNusmStore
+description: The complete store factory signature, options, persistence configuration, and return type.
+icon: Braces
+---
+
+```ts
+function createNusmStore<TState>(
+  initialState: TState,
+  options?: CreateNusmStoreOptions<TState>,
+): NusmStore<TState>
+```
+
+Creates a TanStack Store extended with nusm hydration and Devtools identity.
+
+## Options
+
+```ts
+interface CreateNusmStoreOptions<TState> {
+  adapter?: NusmAdapter
+  persist?: {
+    strategy: "entire" | "slices"
+    slices?: Array<PersistSlice<TState>>
+    hydrate?: HydrateConfig<TState>
+  }
+  devtools?: boolean | {
+    name?: string
+    eventLogCap?: number
+  }
+  onError?: (error: unknown) => void
+  storeId?: string
+}
+```
+
+### `adapter`
+
+Enables persistence through a built-in or custom `NusmAdapter`. A stable `storeId` or non-empty Devtools name is required when an adapter is present.
+
+### `persist`
+
+Chooses `entire` or `slices`. If omitted while an adapter is present, runtime behavior defaults to entire-store persistence; specify the strategy explicitly so intent is visible.
+
+### `devtools`
+
+Enables the framework-neutral event bridge. Use an object to provide a display name and bounded `eventLogCap`.
+
+### `onError`
+
+Receives adapter, hydration, persistence, external-event, and snapshot failures. Fatal hydration may also reject `ready`.
+
+### `storeId`
+
+The stable logical identifier used to derive persistence keys and label Devtools state.
+
+## Hydration configuration
+
+```ts
+interface HydrateConfig<TState> {
+  validate?:
+    | ((persisted: unknown) => boolean)
+    | ((persisted: unknown) => {
+        ok: boolean
+        value?: unknown
+      })
+  merge?: (params: {
+    initial: TState
+    persisted: unknown
+  }) => TState
+  discardPersisted?: boolean | (() => boolean)
+}
+```
+
+`merge` applies to entire-store hydration. Slice values go through their individual `apply` functions.
+
+## Slice definition
+
+```ts
+interface PersistSlice<TState> {
+  key: string
+  select: (state: TState) => unknown
+  apply: (state: TState, sliceValue: unknown) => TState
+}
+```
+
+A slice must own only the selected value represented by its key.
+
+## Return value
+
+```ts
+interface NusmStore<TState> extends Store<TState> {
+  readonly devtoolsInstanceId: string
+  readonly hydration: {
+    readonly overall: HydrationState
+    readonly byKey: Readonly<Record<string, HydrationState>>
+  }
+  readonly isReady: boolean
+  ready: Promise<void>
+}
+```
+
+Use the inherited `state`, `setState`, and `subscribe` members for ordinary store work.
+
+## Example
+
+```ts
+const store = createNusmStore(
+  { locale: "en", sidebarOpen: true },
+  {
+    adapter: createLocalStorageAdapter(),
+    devtools: { name: "UI preferences" },
+    onError: console.error,
+    persist: {
+      strategy: "entire",
+      hydrate: {
+        validate: (value) => isPreferences(value),
+      },
+    },
+    storeId: "ui-preferences",
+  },
+)
+
+await store.ready
+```

@@ -1,0 +1,134 @@
+---
+title: Quick Start
+description: Install nusm, create a persistent store, wait for hydration, and update it safely.
+icon: Rocket
+---
+
+## Install
+
+```bash
+bun add nusm
+```
+
+npm, pnpm, and yarn work too:
+
+```bash
+npm install nusm
+```
+
+## Create a store
+
+```ts title="src/stores/counter.ts"
+import {
+  createLocalStorageAdapter,
+  createNusmStore,
+} from "nusm"
+
+export const counterStore = createNusmStore(
+  { count: 0 },
+  {
+    adapter: createLocalStorageAdapter(),
+    persist: { strategy: "entire" },
+    storeId: "counter",
+  },
+)
+```
+
+`storeId` is required whenever an adapter is present. It gives the persistence unit a stable identity across reloads. With the default local storage prefix, this store uses `nusm:counter:entire`.
+
+## Wait for hydration
+
+Adapter reads are asynchronous from the store's point of view. Wait for `ready` before treating state as hydrated:
+
+```ts
+await counterStore.ready
+
+console.log(counterStore.state)
+console.log(counterStore.isReady) // true
+console.log(counterStore.hydration.overall) // "hydrated"
+```
+
+If no value exists yet, nusm writes the initial state as the adapter baseline before `ready` resolves. A missing key is therefore a normal first-run hydration, not an error.
+
+> `isReady` and `hydration` are readonly snapshots. Read them again after lifecycle events; do not hold and mutate an older snapshot.
+
+## Update the store
+
+Use the standard TanStack Store update API:
+
+```ts
+counterStore.setState((state) => ({
+  count: state.count + 1,
+}))
+```
+
+nusm observes the update and schedules persistence through the configured adapter. The local storage adapter batches rapid changes with a trailing 50 ms wait.
+
+## Subscribe outside React
+
+```ts
+const subscription = counterStore.subscribe(() => {
+  console.log("count", counterStore.state.count)
+})
+
+// Later
+subscription.unsubscribe()
+```
+
+TanStack Store versions may expose either an unsubscribe function or an object with `unsubscribe`; follow the shape returned by your installed version.
+
+## Use it in React
+
+Install React integration peers if your application does not already include them, then import from the dedicated entry point:
+
+```tsx title="src/Counter.tsx"
+import { useStore } from "nusm/react"
+import { counterStore } from "./stores/counter"
+
+export function Counter() {
+  const count = useStore(counterStore, (state) => state.count)
+
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        counterStore.setState((state) => ({ count: state.count + 1 }))
+      }
+    >
+      Count: {count}
+    </button>
+  )
+}
+```
+
+For an application that must not render persisted UI early, resolve `counterStore.ready` during bootstrap or expose a small React-ready flag before mounting the hydrated view.
+
+## Handle storage failures
+
+```ts
+const store = createNusmStore(
+  { count: 0 },
+  {
+    adapter: createLocalStorageAdapter(),
+    onError(error) {
+      console.error("counter persistence failed", error)
+    },
+    persist: { strategy: "entire" },
+    storeId: "counter",
+  },
+)
+
+try {
+  await store.ready
+} catch (error) {
+  // Configuration-level or baseline hydration failures reject ready.
+}
+```
+
+Per-unit read failures are reflected in `hydration` and reported to `onError`. Fatal hydration failures reject `ready`. Later write failures are also sent to `onError`.
+
+## Next steps
+
+- Persist only selected state with [slice persistence](/docs/concepts/persistence#slice-persistence).
+- Pick the right [storage adapter](/docs/storage-adapters).
+- Add the optional [Devtools inspector](/docs/devtools).
