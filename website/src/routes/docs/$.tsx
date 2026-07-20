@@ -1,6 +1,7 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { staticFunctionMiddleware } from "@tanstack/start-static-server-functions";
+import { basePathStaticFunctionMiddleware } from "@/lib/static-function-middleware";
 import { useFumadocsLoader } from "fumadocs-core/source/client";
 import browserCollections from "collections/browser";
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
@@ -27,7 +28,7 @@ export const Route = createFileRoute("/docs/$")({
 
 const loadPage = createServerFn({ method: "GET" })
   .validator((slugs: string[]) => slugs)
-  .middleware([staticFunctionMiddleware])
+  .middleware([basePathStaticFunctionMiddleware, staticFunctionMiddleware])
   .handler(async ({ data: slugs }) => {
     const page = source.getPage(slugs);
     if (!page) throw notFound();
