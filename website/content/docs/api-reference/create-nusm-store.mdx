@@ -15,22 +15,7 @@ Creates a TanStack Store extended with nusm hydration and Devtools identity.
 
 ## Options
 
-```ts
-interface CreateNusmStoreOptions<TState> {
-  adapter?: NusmAdapter
-  persist?: {
-    strategy: "entire" | "slices"
-    slices?: Array<PersistSlice<TState>>
-    hydrate?: HydrateConfig<TState>
-  }
-  devtools?: boolean | {
-    name?: string
-    eventLogCap?: number
-  }
-  onError?: (error: unknown) => void
-  storeId?: string
-}
-```
+<auto-type-table path="../../../../src/types.ts" name="CreateNusmStoreOptions" />
 
 ### `adapter`
 
@@ -54,51 +39,38 @@ The stable logical identifier used to derive persistence keys and label Devtools
 
 ## Hydration configuration
 
-```ts
-interface HydrateConfig<TState> {
-  validate?:
-    | ((persisted: unknown) => boolean)
-    | ((persisted: unknown) => {
-        ok: boolean
-        value?: unknown
-      })
-  merge?: (params: {
-    initial: TState
-    persisted: unknown
-  }) => TState
-  discardPersisted?: boolean | (() => boolean)
-}
-```
+<auto-type-table path="../../../../src/types.ts" name="HydrateConfig" />
 
 `merge` applies to entire-store hydration. Slice values go through their individual `apply` functions.
 
 ## Slice definition
 
-```ts
-interface PersistSlice<TState> {
-  key: string
-  select: (state: TState) => unknown
-  apply: (state: TState, sliceValue: unknown) => TState
-}
-```
+<auto-type-table path="../../../../src/types.ts" name="PersistSlice" />
 
 A slice must own only the selected value represented by its key.
 
 ## Return value
 
-```ts
-interface NusmStore<TState> extends Store<TState> {
-  readonly devtoolsInstanceId: string
-  readonly hydration: {
-    readonly overall: HydrationState
-    readonly byKey: Readonly<Record<string, HydrationState>>
-  }
-  readonly isReady: boolean
-  ready: Promise<void>
-}
-```
+<auto-type-table path="../../../../src/types.ts" name="NusmStore" />
 
 Use the inherited `state`, `setState`, and `subscribe` members for ordinary store work.
+
+## Lifecycle and Devtools types
+
+```ts
+type HydrationState =
+  | "not_configured"
+  | "pending"
+  | "hydrated"
+  | "discarded"
+  | "error"
+```
+
+<auto-type-table path="../../../../src/types.ts" name="ReadonlyHydrationStatus" />
+
+<auto-type-table path="../../../../src/types.ts" name="NusmEvent" />
+
+<auto-type-table path="../../../../src/types.ts" name="NusmDevtoolsSnapshot" />
 
 ## Example
 

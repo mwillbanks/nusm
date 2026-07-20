@@ -7,7 +7,7 @@ import type { NusmStore } from "../types";
 
 export type NoInfer<T> = [T][T extends unknown ? 0 : never];
 
-interface UseStoreOptions {
+export interface UseStoreOptions {
   equal?: boolean;
 }
 

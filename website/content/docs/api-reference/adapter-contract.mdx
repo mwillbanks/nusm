@@ -4,41 +4,33 @@ description: Reference for NusmAdapter, browser adapter options, events, and pac
 icon: Cable
 ---
 
-## NusmAdapter
+## Built-in adapter factories
 
 ```ts
-interface NusmAdapter {
-  name: string
+function createLocalStorageAdapter(
+  options?: StorageAdapterOptions,
+): NusmAdapter
 
-  getItem(key: string): unknown | null | Promise<unknown | null>
-  setItem(key: string, value: unknown): void | Promise<void>
-  removeItem(key: string): void | Promise<void>
+function createSessionStorageAdapter(
+  options?: StorageAdapterOptions,
+): NusmAdapter
 
-  getAllKeys?(): string[] | Promise<string[]>
-  clear?(): void | Promise<void>
-
-  subscribe?(listener: (event: AdapterEvent) => void): () => void
-
-  resolveKey?(params: {
-    storeId: string
-    sliceKey?: string
-    kind: "entire" | "slice"
-  }): string
-
-  pacer?: NusmPacerConfig
-}
+function createIndexDbAdapter(
+  options?: IndexDbAdapterOptions,
+): NusmAdapter
 ```
+
+## NusmAdapter
+
+<auto-type-table path="../../../../src/types.ts" name="NusmAdapter" />
 
 ## AdapterEvent
 
 ```ts
 type AdapterEventType = "set" | "remove" | "clear"
-
-interface AdapterEvent {
-  type: AdapterEventType
-  key?: string
-}
 ```
+
+<auto-type-table path="../../../../src/types.ts" name="AdapterEvent" />
 
 Provide a key for `set` and `remove`. An adapter-wide `clear` can omit it.
 
@@ -61,42 +53,16 @@ type NusmPacerConfig =
 
 Used by `createLocalStorageAdapter` and `createSessionStorageAdapter`:
 
-```ts
-interface StorageAdapterOptions {
-  storage?: StorageLike
-  prefix?: string
-  serialize?: (value: unknown) => string
-  deserialize?: (raw: string) => unknown
-  pacer?: NusmPacerConfig
-}
-```
+<auto-type-table path="../../../../src/types.ts" name="StorageAdapterOptions" />
 
 ## StorageLike
 
-```ts
-interface StorageLike {
-  getItem(key: string): string | null
-  setItem(key: string, value: string): void
-  removeItem(key: string): void
-  clear?(): void
-  key?(index: number): string | null
-  readonly length?: number
-}
-```
+<auto-type-table path="../../../../src/types.ts" name="StorageLike" />
 
 `key` and `length` enable `getAllKeys`; `clear` enables adapter clearing.
 
 ## IndexDbAdapterOptions
 
-```ts
-interface IndexDbAdapterOptions {
-  dbName?: string
-  storeName?: string
-  version?: number
-  serialize?: (value: unknown) => string
-  deserialize?: (raw: string) => unknown
-  pacer?: NusmPacerConfig
-}
-```
+<auto-type-table path="../../../../src/types.ts" name="IndexDbAdapterOptions" />
 
 See [Custom Adapters](/docs/storage-adapters/custom-adapters) for implementation guidance and invariants.

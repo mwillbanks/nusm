@@ -5,10 +5,10 @@ icon: Atom
 ---
 
 ```ts
-function useStore<TState, TSelected = TState>(
+function useStore<TState, TSelected = NoInfer<TState>>(
   store: NusmStore<TState>,
-  selector?: (state: TState) => TSelected,
-  options?: { equal?: boolean },
+  selector?: (state: NoInfer<TState>) => TSelected,
+  options?: UseStoreOptions,
 ): TSelected
 ```
 
@@ -17,6 +17,10 @@ Import it from the React-specific entry point:
 ```ts
 import { useStore } from "nusm/react"
 ```
+
+## Options
+
+<auto-type-table path="../../../../src/react/index.ts" name="UseStoreOptions" />
 
 ## Parameters
 
