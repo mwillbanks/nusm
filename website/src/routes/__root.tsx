@@ -48,7 +48,10 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <HeadContent />
       </head>
       <body className="flex min-h-screen flex-col">
-        <RootProvider search={{ SearchDialog: StaticSearchDialog }}>
+        <RootProvider
+          theme={{ hotKey: "d" }}
+          search={{ SearchDialog: StaticSearchDialog }}
+        >
           {children}
         </RootProvider>
         <Scripts />

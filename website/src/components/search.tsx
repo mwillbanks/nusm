@@ -1,8 +1,7 @@
 "use client";
 
-import { create } from "@orama/orama";
 import { useDocsSearch } from "fumadocs-core/search/client";
-import { oramaStaticClient } from "fumadocs-core/search/client/orama-static";
+import { staticClient } from "fumadocs-core/search/client/orama-static";
 import {
   SearchDialog,
   SearchDialogClose,
@@ -17,19 +16,9 @@ import {
 
 const searchEndpoint = `${import.meta.env.BASE_URL}api/search`;
 
-function initOrama() {
-  return create({
-    language: "english",
-    schema: { _: "string" },
-  });
-}
-
 export default function StaticSearchDialog(props: SharedProps) {
   const { query, search, setSearch } = useDocsSearch({
-    client: oramaStaticClient({
-      from: searchEndpoint,
-      initOrama,
-    }),
+    client: staticClient({ from: searchEndpoint }),
   });
 
   return (
