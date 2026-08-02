@@ -1,7 +1,11 @@
 import "fake-indexeddb/auto";
 import { afterEach, describe, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { App, resolveExampleDevtoolsEnabled } from "./App";
+import {
+  App,
+  exampleDevtoolsConfig,
+  resolveExampleDevtoolsEnabled,
+} from "./App";
 import {
   activityStore,
   sessionStore,
@@ -16,6 +20,14 @@ describe("example devtools experience", () => {
     expect(resolveExampleDevtoolsEnabled(undefined, "")).toBe(false);
     expect(resolveExampleDevtoolsEnabled({}, "")).toBe(true);
     expect(resolveExampleDevtoolsEnabled(undefined, "?devtools")).toBe(true);
+  });
+
+  test("uses the floating trigger at the bottom-right fallback position", () => {
+    expect(exampleDevtoolsConfig).toEqual({
+      defaultOpen: false,
+      position: "bottom-right",
+      triggerMode: "floating",
+    });
   });
 
   test("provides working navigation and a cross-adapter quick command", async () => {

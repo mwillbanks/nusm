@@ -14,7 +14,7 @@
     "@commitlint/config-conventional": "^21.2.0",
     "@happy-dom/global-registrator": "^20.11.1",
     "@release-it/conventional-changelog": "^12.0.0",
-    "@tanstack/devtools": "^0.12.5",
+    "@tanstack/devtools": "^0.13.0",
     "@tanstack/devtools-utils": "^0.6.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.0",
@@ -72,7 +72,7 @@
     "picomatch": "4.0.5"
   },
   "peerDependencies": {
-    "@tanstack/devtools": "^0.12.5",
+    "@tanstack/devtools": "^0.12.5 || ^0.13.0",
     "@tanstack/devtools-utils": "^0.6.0",
     "lucide-react": ">=0.468.0",
     "react": ">=18.0.0",

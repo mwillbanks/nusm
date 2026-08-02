@@ -271,7 +271,12 @@ import { createNusmDevtoolsPlugin } from "nusm/devtools"
 const nusmPlugin = createNusmDevtoolsPlugin()
 
 export function DevelopmentTools() {
-  return <TanStackDevtools plugins={[nusmPlugin]} />
+  return (
+    <TanStackDevtools
+      config={{ defaultOpen: false, position: "bottom-right", triggerMode: "floating" }}
+      plugins={[nusmPlugin]}
+    />
+  )
 }
 ```
 

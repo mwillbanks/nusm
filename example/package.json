@@ -1,8 +1,8 @@
 {
   "dependencies": {
-    "@tanstack/devtools": "^0.12.5",
+    "@tanstack/devtools": "^0.13.0",
     "@tanstack/devtools-utils": "^0.6.0",
-    "@tanstack/react-devtools": "^0.10.8",
+    "@tanstack/react-devtools": "^0.10.9",
     "lucide-react": "^1.28.0",
     "nusm": "file:../src",
     "react": "^19.2.8",

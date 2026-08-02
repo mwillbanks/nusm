@@ -24,6 +24,12 @@ const devtoolsEnabled = resolveExampleDevtoolsEnabled(
   globalThis.location?.search ?? "",
 );
 
+export const exampleDevtoolsConfig = {
+  defaultOpen: false,
+  position: "bottom-right" as const,
+  triggerMode: "floating" as const,
+};
+
 let exampleIdSequence = 0;
 const createExampleId = () => `nusm-example-${++exampleIdSequence}`;
 
@@ -47,12 +53,7 @@ const ExampleDevtools = () => {
     [],
   );
   if (!devtoolsEnabled) return null;
-  return (
-    <TanStackDevtools
-      config={{ defaultOpen: false, position: "bottom-right" }}
-      plugins={[plugin]}
-    />
-  );
+  return <TanStackDevtools config={exampleDevtoolsConfig} plugins={[plugin]} />;
 };
 
 export const observeStoreReadiness = (

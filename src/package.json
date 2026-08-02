@@ -14,7 +14,7 @@
   },
   "name": "nusm",
   "peerDependencies": {
-    "@tanstack/devtools": "^0.12.5",
+    "@tanstack/devtools": "^0.12.5 || ^0.13.0",
     "@tanstack/devtools-utils": "^0.6.0",
     "lucide-react": ">=0.468.0",
     "react": ">=18.0.0",
