@@ -72,8 +72,11 @@ async function fetchStaticResult(
     }
 
     const serialized = await response.json();
+    const serovalPlugins = getDefaultSerovalPlugins() as unknown as NonNullable<
+      Parameters<typeof fromJSON>[1]
+    >["plugins"];
     return fromJSON(serialized, {
-      plugins: getDefaultSerovalPlugins(),
+      plugins: serovalPlugins,
     }) as StaticCachedResult;
   });
 
