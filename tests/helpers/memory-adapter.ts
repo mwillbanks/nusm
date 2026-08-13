@@ -82,6 +82,9 @@ export const createMemoryAdapter = (options?: MemoryAdapterOptions) => {
     emit: (event: { key?: string; type: "set" | "remove" | "clear" }) => {
       for (const listener of listeners) listener(event);
     },
+    get listenerCount() {
+      return listeners.size;
+    },
     setItemCalls,
     store,
   };

@@ -172,6 +172,7 @@ describe("instance identity and scoped adapter events", () => {
       { ephemeral: "initial", persisted: 1 },
       {
         adapter,
+        crossTab: true,
         persist: {
           slices: [
             {

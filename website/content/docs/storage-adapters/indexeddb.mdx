@@ -59,7 +59,9 @@ nusm:<storeId>:slice:<sliceKey>
 
 IndexedDB is a good fit when state is too substantial for synchronous Web Storage, writes are naturally asynchronous, or you want a dedicated object store boundary.
 
-It does not currently provide an external-event subscription. If multiple contexts must coordinate IndexedDB changes, implement a custom adapter that combines IndexedDB with a signaling mechanism such as `BroadcastChannel`.
+Set `crossTab: true` on the store, or enable the global default before creating
+it, to synchronize IndexedDB-backed state through nusm's BroadcastChannel
+transport. Remote values are written into the receiving tab's IndexedDB store.
 
 ## Browser boundary
 

@@ -123,3 +123,16 @@ resolveKey: ({ storeId, kind, sliceKey }) =>
 ```
 
 nusm resolves each configured unit once and reuses that key for hydration, writes, external events, and Devtools commands.
+
+## Cross-tab persistence
+
+The optional BroadcastChannel transport is independent of adapter choice. After
+hydration, a new tab requests the current peer snapshot. Remote state updates
+memory and then uses the receiving store's adapter. Slice stores write only
+selected values that changed. Remote applications never rebroadcast themselves.
+
+Enable this transport globally before store creation or with `crossTab: true`
+on one store. It remains disabled by default. Adapter subscriptions continue to
+process adapter-defined external events without this option. Browser session
+storage remains tab-scoped storage, but enabled stores intentionally copy remote
+state into each receiving tab's session storage.

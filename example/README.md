@@ -13,6 +13,11 @@ This standalone Bun and React application demonstrates how to build, inspect, an
 
 Every persistent store writes a missing initial value before `store.ready` resolves. The adapter tabs therefore start with real values and report synchronized health with no pending keys. Reload tests prove that later localStorage, sessionStorage, and IndexedDB values hydrate into a new store lifecycle.
 
+The example enables cross-tab communication globally before creating its
+stores. `Live Session` demonstrates a store-level `crossTab: false` override.
+Open two same-origin tabs to observe memory, localStorage, and IndexedDB stores
+synchronize. Devtools reports the transport state for every store.
+
 ## Prerequisites
 
 - Bun 1.3 or newer.
@@ -108,7 +113,9 @@ bun run example:test
 bun run example:build
 ```
 
-The tests exercise React navigation, readiness guards, real browser-adapter persistence, reload hydration, optional plugin behavior, static asset traversal rejection, and the live store interactions used by the panel.
+The tests exercise React navigation, readiness guards, real browser-adapter
+persistence, reload hydration, all four cross-tab store categories, optional
+plugin behavior, static asset traversal rejection, and live panel interactions.
 
 Serve the production bundle:
 

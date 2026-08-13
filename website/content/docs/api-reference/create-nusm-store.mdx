@@ -23,6 +23,13 @@ All options are optional. With no adapter, the store remains in memory, `ready` 
 
 Enables persistence for this store through a built-in or custom `NusmAdapter`. A stable `storeId` or non-empty Devtools name is required when an adapter is present. Omit it for in-memory state.
 
+### `crossTab`
+
+Enables or disables the browser BroadcastChannel transport for this store. It
+overrides the default captured from `configureNusm({ crossTab })` when the store
+is created. The package default is `false`. Adapter subscriptions remain active
+independently for adapter-defined external events.
+
 ### `persist`
 
 Chooses `entire` or `slices`. If omitted while an adapter is present, runtime behavior defaults to entire-store persistence; specify the strategy explicitly so intent is visible.
@@ -56,6 +63,18 @@ A slice must own only the selected value represented by its key.
 <auto-type-table path="../../../../src/types.ts" name="NusmStore" />
 
 Use the inherited `state`, `setState`, and `subscribe` members for ordinary store work.
+Call `await store.dispose()` to flush queued persistence and release internal
+subscriptions. Disposal is optional and idempotent.
+
+## Global configuration
+
+```ts
+configureNusm({ crossTab: true })
+```
+
+This changes the default only for subsequently created stores. Browser stores
+need a stable `storeId` or normalized Devtools name. Global opt-in skips unnamed
+stores, while explicit store opt-in rejects them.
 
 ## Lifecycle and Devtools types
 

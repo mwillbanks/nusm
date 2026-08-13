@@ -1,9 +1,11 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import {
   createLocalStorageAdapter,
+  createNusmStore,
   createSessionStorageAdapter,
   type StorageLike,
 } from "../../src/index";
+import { installFakeBroadcastChannel } from "../helpers/fake-broadcast-channel";
 
 type MemoryStorage = StorageLike & { data: Map<string, string> };
 
@@ -29,6 +31,11 @@ const createMemoryStorage = (): MemoryStorage => {
 };
 
 describe("storage adapters", () => {
+  let restoreBroadcastChannel: (() => void) | undefined;
+  afterEach(() => {
+    restoreBroadcastChannel?.();
+    restoreBroadcastChannel = undefined;
+  });
   test("throws when no storage available", () => {
     const originalWindow = globalThis.window;
     // @ts-expect-error - test-only global mutation
@@ -116,6 +123,38 @@ describe("storage adapters", () => {
     ]);
 
     unsubscribe?.();
+  });
+
+  test("the store preserves adapter subscriptions across cross-tab modes", async () => {
+    restoreBroadcastChannel = installFakeBroadcastChannel();
+    const storage = createMemoryStorage();
+    const storageAdapter = createLocalStorageAdapter({ storage });
+    let subscriptions = 0;
+    const adapter = {
+      ...storageAdapter,
+      subscribe: (
+        listener: Parameters<NonNullable<typeof storageAdapter.subscribe>>[0],
+      ) => {
+        subscriptions += 1;
+        return storageAdapter.subscribe?.(listener) ?? (() => {});
+      },
+    };
+    const disabled = createNusmStore(
+      { value: 0 },
+      { adapter, persist: { strategy: "entire" }, storeId: "disabled-events" },
+    );
+    const enabled = createNusmStore(
+      { value: 0 },
+      {
+        adapter,
+        crossTab: true,
+        persist: { strategy: "entire" },
+        storeId: "enabled-events",
+      },
+    );
+    await Promise.all([disabled.ready, enabled.ready]);
+    expect(subscriptions).toBe(2);
+    await Promise.all([disabled.dispose(), enabled.dispose()]);
   });
 
   test("clear removes stored values", async () => {

@@ -87,6 +87,11 @@ affect only the configured adapter. Store snapshots publish producer-owned
 synchronization state, so the panel reports synchronized, divergent, pending, or
 unknown health without comparing lossy display projections.
 
+Snapshots report BroadcastChannel state as `active`, `disabled`, `unavailable`,
+`skipped_missing_identity`, or `disposed`. This status does not describe
+adapter-defined external events. The timeline records connection, remote
+application, unavailable transport, protocol failure, and disposal.
+
 On first hydration, a missing entire-store value or slice is written from the
 valid initial state before `ready` resolves. The resulting adapter tab contains
 the same baseline as memory, `lastFlushAt` records the seed, and an empty pending

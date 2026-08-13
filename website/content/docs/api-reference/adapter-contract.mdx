@@ -34,6 +34,11 @@ type AdapterEventType = "set" | "remove" | "clear"
 
 Provide a key for `set` and `remove`. An adapter-wide `clear` can omit it.
 
+`subscribe` represents external adapter changes. nusm attaches it whenever the
+adapter provides it, independently of the optional BroadcastChannel transport.
+BroadcastChannel adds equivalent cross-tab behavior for IndexedDB and
+memory-only stores without requiring adapter-level signaling.
+
 ## NusmPacerConfig
 
 ```ts

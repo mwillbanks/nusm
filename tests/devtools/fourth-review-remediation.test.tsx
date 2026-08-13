@@ -124,6 +124,7 @@ describe("fourth semantic review remediations", () => {
       { count: 1 },
       {
         adapter,
+        crossTab: true,
         devtools: true,
         persist: { strategy: "entire" },
         storeId: "echo",

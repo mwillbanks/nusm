@@ -698,6 +698,10 @@ export function NusmDevtoolsPanel({ theme }: TanStackDevtoolsPluginProps) {
                   <strong>{selected.hydration.overall}</strong>
                 </div>
                 <div className="nusm-stat">
+                  <span>BroadcastChannel</span>
+                  <strong>{selected.crossTab ?? "disabled"}</strong>
+                </div>
+                <div className="nusm-stat">
                   <span>Last write</span>
                   <strong>
                     {selected.lastFlushAt
@@ -744,6 +748,7 @@ export function NusmDevtoolsPanel({ theme }: TanStackDevtoolsPluginProps) {
                         </p>
                         <pre className="nusm-code">
                           {toJson({
+                            crossTab: selected.crossTab ?? "disabled",
                             pendingKeys: selected.pendingKeys ?? [],
                             persistenceStrategy:
                               selected.persistenceStrategy ?? "none",

@@ -3,6 +3,14 @@ import { AsyncDebouncer } from "@tanstack/pacer";
 import { batch, Store } from "@tanstack/store";
 import { deepEqual } from "fast-equals";
 
+import { getNusmGlobalOptions } from "./config.js";
+import {
+  type CrossTabRevision,
+  type CrossTabTransport,
+  compareCrossTabRevisions,
+  createCrossTabTransport,
+  getBrowserBroadcastChannel,
+} from "./crossTab.js";
 import { createNusmDevtoolsEmitter } from "./devtools/client.js";
 import { removeValueAtPath, setValueAtPath } from "./devtools/path.js";
 
@@ -51,6 +59,7 @@ const defineRecordValue = <T>(
 };
 
 const devtoolsStoreSequenceKey = Symbol.for("nusm.devtools.store-sequence");
+const crossTabClientIdKey = Symbol.for("nusm.cross-tab.client-id");
 const nextDevtoolsInstanceId = () => {
   const registry = globalThis as unknown as Record<symbol, unknown>;
   const current = registry[devtoolsStoreSequenceKey];
@@ -58,6 +67,17 @@ const nextDevtoolsInstanceId = () => {
     (typeof current === "bigint" && current >= 0n ? current : 0n) + 1n;
   registry[devtoolsStoreSequenceKey] = sequence;
   return `nusm-instance-${sequence}`;
+};
+
+const getCrossTabClientId = () => {
+  const registry = globalThis as unknown as Record<symbol, unknown>;
+  const existing = registry[crossTabClientIdKey];
+  if (typeof existing === "string") return existing;
+  const clientId =
+    globalThis.crypto?.randomUUID?.() ??
+    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  registry[crossTabClientIdKey] = clientId;
+  return clientId;
 };
 
 const resolveStoreId = <TState>(
@@ -123,7 +143,26 @@ export function createNusmStore<TState>(
   const onError = options?.onError;
   const storeId = resolveStoreId(options);
   const devtoolsInstanceId = nextDevtoolsInstanceId();
+  const crossTabSenderId = `${getCrossTabClientId()}:${devtoolsInstanceId}`;
   const storeIdValue = storeId ?? devtoolsInstanceId;
+  const configuredCrossTab =
+    options?.crossTab ?? getNusmGlobalOptions().crossTab;
+  const browserRuntime = typeof window !== "undefined";
+  if (browserRuntime && options?.crossTab === true && !storeId) {
+    throw new Error(
+      "nusm requires a stable storeId or Devtools name when cross-tab communication is explicitly enabled.",
+    );
+  }
+  const BroadcastChannelConstructor = getBrowserBroadcastChannel();
+  let crossTabStatus: import("./types.js").CrossTabStatus = !configuredCrossTab
+    ? "disabled"
+    : !browserRuntime
+      ? "disabled"
+      : !storeId
+        ? "skipped_missing_identity"
+        : !BroadcastChannelConstructor
+          ? "unavailable"
+          : "active";
   const configuredEventLogCap =
       typeof options?.devtools === "object"
         ? options.devtools.eventLogCap
@@ -138,6 +177,35 @@ export function createNusmStore<TState>(
       devtoolsInstanceId,
     );
   let lastFlushAt: number | undefined;
+  let disposed = false;
+  let suppressCrossTab = false;
+  let crossTabTransport: CrossTabTransport | undefined;
+  let crossTabRevision: CrossTabRevision = {
+    counter: 0,
+    senderId: crossTabSenderId,
+  };
+  let crossTabHasProgress = false;
+  const cleanupTasks: Array<() => void> = [];
+
+  const emitCrossTabEvent = (
+    type:
+      | "cross_tab_connected"
+      | "cross_tab_remote_applied"
+      | "cross_tab_unavailable"
+      | "cross_tab_protocol_error"
+      | "cross_tab_disposed",
+    detail?: unknown,
+  ) => {
+    devtoolsEmitter?.emitEvent({
+      detail,
+      storeId: storeIdValue,
+      ts: Date.now(),
+      type,
+    });
+  };
+  if (crossTabStatus === "unavailable") {
+    emitCrossTabEvent("cross_tab_unavailable", "BroadcastChannel unavailable");
+  }
 
   if (adapter && !storeId) {
     throw new Error(
@@ -428,12 +496,22 @@ export function createNusmStore<TState>(
 
   let previousState = store.state;
   let supersededPersistenceState: { value: TState } | undefined;
+  const broadcastLocalState = (currentVal: TState) => {
+    if (!crossTabTransport || suppressCrossTab || disposed) return;
+    crossTabRevision = {
+      counter: crossTabRevision.counter + 1,
+      senderId: crossTabSenderId,
+    };
+    crossTabHasProgress = true;
+    crossTabTransport.postState(currentVal, crossTabRevision);
+  };
   const subscribeToStore = () => {
-    store.subscribe((currentVal) => {
+    const subscription = store.subscribe((currentVal) => {
       const prevVal = previousState;
       previousState = currentVal;
       if (suppressPersist) return;
       void emitDevtoolsSnapshot();
+      broadcastLocalState(currentVal);
       if (!adapter) return;
       if (
         supersededPersistenceState &&
@@ -462,12 +540,81 @@ export function createNusmStore<TState>(
         });
       }
     });
+    cleanupTasks.push(
+      typeof subscription === "function"
+        ? subscription
+        : () => subscription.unsubscribe(),
+    );
   };
 
   const applyState = (nextState: TState) => {
     suppressPersist = true;
     store.setState(() => nextState);
     suppressPersist = false;
+  };
+
+  const applyRemoteState = (nextState: unknown, revision: CrossTabRevision) => {
+    if (disposed) return;
+    suppressCrossTab = true;
+    try {
+      store.setState(() => nextState as TState);
+    } finally {
+      suppressCrossTab = false;
+    }
+    crossTabRevision = revision;
+    emitCrossTabEvent("cross_tab_remote_applied", revision);
+  };
+
+  const activateCrossTab = () => {
+    if (
+      crossTabStatus !== "active" ||
+      !BroadcastChannelConstructor ||
+      !storeId ||
+      disposed
+    )
+      return;
+    try {
+      crossTabTransport = createCrossTabTransport({
+        BroadcastChannel: BroadcastChannelConstructor,
+        instanceId: crossTabSenderId,
+        onError: (error) => {
+          emitCrossTabEvent("cross_tab_protocol_error", error.message);
+          onError?.(error);
+        },
+        onRequest: (requesterId) => {
+          crossTabTransport?.postSnapshot(
+            store.state,
+            crossTabRevision,
+            requesterId,
+          );
+        },
+        onState: (state, revision, kind) => {
+          const revisionComparison = compareCrossTabRevisions(
+            revision,
+            crossTabRevision,
+          );
+          if (kind === "update" && revisionComparison <= 0) return;
+          if (
+            kind === "snapshot" &&
+            crossTabHasProgress &&
+            revisionComparison <= 0
+          )
+            return;
+          crossTabHasProgress = true;
+          applyRemoteState(state, revision);
+        },
+        storeId,
+      });
+    } catch (error) {
+      crossTabStatus = "unavailable";
+      emitCrossTabEvent(
+        "cross_tab_unavailable",
+        error instanceof Error ? error.message : String(error),
+      );
+      return;
+    }
+    emitCrossTabEvent("cross_tab_connected");
+    crossTabTransport.postRequest(crossTabRevision);
   };
 
   // fallow-ignore-next-line complexity
@@ -661,6 +808,7 @@ export function createNusmStore<TState>(
     if (!adapter) {
       isReady = true;
       readyResolve();
+      activateCrossTab();
       emitDevtoolsSnapshot();
       return;
     }
@@ -683,6 +831,7 @@ export function createNusmStore<TState>(
       });
       isReady = true;
       readyResolve();
+      activateCrossTab();
       devtoolsEmitter?.emitHydration(storeIdValue, getHydrationSnapshot());
       emitDevtoolsSnapshot();
     } catch (error) {
@@ -781,13 +930,14 @@ export function createNusmStore<TState>(
 
   const pendingAdapterEvents: AdapterEvent[] = [];
   if (adapter?.subscribe) {
-    adapter.subscribe((event) => {
+    const stopAdapterSubscription = adapter.subscribe((event) => {
       if (!isReady) {
         pendingAdapterEvents.push(event);
         return;
       }
       void handleAdapterEvent(event);
     });
+    cleanupTasks.push(stopAdapterSubscription);
   }
 
   // fallow-ignore-next-line complexity
@@ -858,6 +1008,7 @@ export function createNusmStore<TState>(
       if (sequence !== snapshotSequence) return undefined;
       devtoolsEmitter.emitSnapshot({
         adapterName: adapter?.name,
+        crossTab: crossTabStatus,
         eventLogCap,
         hydration: getHydrationSnapshot(),
         initial: initialState,
@@ -1225,9 +1376,10 @@ export function createNusmStore<TState>(
     });
   };
 
-  devtoolsEmitter?.onCommand((command) => {
+  const stopDevtoolsCommands = devtoolsEmitter?.onCommand((command) => {
     void applyDevtoolsCommand(command);
   });
+  if (stopDevtoolsCommands) cleanupTasks.push(stopDevtoolsCommands);
 
   subscribeToStore();
   void hydrate().then(async () => {
@@ -1247,6 +1399,21 @@ export function createNusmStore<TState>(
   })();
   Object.defineProperty(store, "hydration", { get: getHydrationSnapshot });
   store.ready = ready;
+  let disposePromise: Promise<void> | undefined;
+  store.dispose = () => {
+    if (disposePromise) return disposePromise;
+    disposed = true;
+    crossTabTransport?.close();
+    crossTabTransport = undefined;
+    pacer?.cancel();
+    for (const cleanup of cleanupTasks.splice(0)) cleanup();
+    crossTabStatus = "disposed";
+    emitCrossTabEvent("cross_tab_disposed");
+    disposePromise = flushQueue().finally(() => {
+      void emitDevtoolsSnapshot();
+    });
+    return disposePromise;
+  };
 
   return store;
 }

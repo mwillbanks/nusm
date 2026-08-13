@@ -59,9 +59,14 @@ Always change serializer and deserializer together. Existing values written in a
 
 ## Cross-tab updates
 
-The adapter listens for browser `storage` events and emits `set` or `remove` events for matching prefixed keys. nusm then reloads the configured persistence unit and updates live state without writing the same external value back.
+The adapter can translate browser `storage` events into `set` or `remove`
+events. nusm continues attaching that adapter listener whenever it is provided.
+With `crossTab` enabled, BroadcastChannel additionally synchronizes current
+snapshots and updates for a consistent transport across all adapter types.
 
-The browser does not send a `storage` event back to the tab that performed the write; nusm already has that tab's current in-memory state.
+BroadcastChannel communication remains disabled by default. Browser `storage`
+events retain their previous behavior. BroadcastChannel remote updates persist
+in the receiving tab without echoing back to peers.
 
 ## Constraints
 

@@ -1,9 +1,12 @@
 import {
+  configureNusm,
   createIndexDbAdapter,
   createLocalStorageAdapter,
   createNusmStore,
   createSessionStorageAdapter,
 } from "nusm";
+
+configureNusm({ crossTab: true });
 
 type Task = { id: string; title: string; done: boolean; owner: string };
 
@@ -45,6 +48,7 @@ export const sessionStore = createNusmStore(
   { activeView: "command-center", drafts: 2, lastCommand: "⌘ K" },
   {
     adapter: createSessionStorageAdapter(),
+    crossTab: false,
     devtools: { name: "Live Session" },
     persist: { strategy: "entire" },
     storeId: "live-session",
@@ -86,3 +90,5 @@ export const storesReady = Promise.all([
   sessionStore.ready,
   activityStore.ready,
 ]);
+
+configureNusm({ crossTab: false });

@@ -60,6 +60,7 @@ export interface HydrateConfig<TState> {
 
 export interface CreateNusmStoreOptions<TState> {
   adapter?: NusmAdapter;
+  crossTab?: boolean;
   persist?: {
     strategy: "entire" | "slices";
     slices?: Array<PersistSlice<TState>>;
@@ -69,6 +70,17 @@ export interface CreateNusmStoreOptions<TState> {
   onError?: (error: unknown) => void;
   storeId?: string;
 }
+
+export interface NusmGlobalOptions {
+  crossTab: boolean;
+}
+
+export type CrossTabStatus =
+  | "active"
+  | "disabled"
+  | "unavailable"
+  | "skipped_missing_identity"
+  | "disposed";
 
 export type HydrationState =
   | "not_configured"
@@ -92,6 +104,11 @@ export type NusmEventType =
   | "persist_flush_ok"
   | "persist_flush_error"
   | "adapter_external_event"
+  | "cross_tab_connected"
+  | "cross_tab_remote_applied"
+  | "cross_tab_unavailable"
+  | "cross_tab_protocol_error"
+  | "cross_tab_disposed"
   | "devtools_command"
   | "devtools_command_error"
   | "devtools_snapshot_error";
@@ -107,6 +124,7 @@ export interface NusmEvent {
 }
 
 export interface NusmDevtoolsSnapshot {
+  crossTab?: CrossTabStatus;
   eventLogCap?: number;
   storeId: string;
   instanceId: string;
@@ -131,6 +149,7 @@ export interface NusmStore<TState> extends Store<TState> {
   readonly devtoolsInstanceId: string;
   readonly hydration: ReadonlyHydrationStatus;
   readonly isReady: boolean;
+  dispose(): Promise<void>;
   ready: Promise<void>;
 }
 

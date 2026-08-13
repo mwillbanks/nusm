@@ -16,7 +16,8 @@ Explore the full documentation at [mwillbanks.github.io/nusm](https://mwillbanks
 - Entire-store or slice-based persistence
 - Async hydration with deep merge
 - Debounced persistence via @tanstack/pacer
-- Adapter events for cross-tab or external updates
+- Adapter-defined external events through subscriptions
+- Opt-in browser cross-tab communication for every identified store
 - React hooks (via `nusm/react`)
 - Optional TanStack Devtools store inspector (`nusm/devtools`)
 
@@ -84,7 +85,35 @@ const nusm = createNusmStore(initialState, {
 
 Return value:
 
-- A @tanstack/store instance extended with `ready`, readonly `isReady`, and an immutable `hydration` snapshot. `hydration.overall` and each `hydration.byKey` entry report `pending`, `hydrated`, `discarded`, `error`, or `not_configured`; read a fresh snapshot after lifecycle events rather than mutating it.
+- A @tanstack/store instance extended with `ready`, `dispose`, readonly `isReady`, and an immutable `hydration` snapshot. `hydration.overall` and each `hydration.byKey` entry report `pending`, `hydrated`, `discarded`, `error`, or `not_configured`; read a fresh snapshot after lifecycle events rather than mutating it.
+
+### Cross-tab communication
+
+The BroadcastChannel cross-tab transport is disabled by default. Enable it for
+subsequently created stores, then override individual stores when needed:
+
+```ts
+import { configureNusm, createNusmStore } from 'nusm'
+
+configureNusm({ crossTab: true })
+const shared = createNusmStore({ count: 0 }, { storeId: 'shared-counter' })
+const local = createNusmStore(
+  { draft: '' },
+  { crossTab: false, storeId: 'local-draft' },
+)
+```
+
+The store option overrides the creation-time global default. Browser peers use
+a stable `storeId`, or a normalized Devtools name. Global opt-in skips unnamed
+stores; explicit opt-in rejects them. New tabs request a snapshot after
+hydration. Later changes update memory and the receiving adapter without echo
+loops. Memory-only, local storage, session storage, IndexedDB, and custom
+adapters use the same transport.
+
+Unsupported browsers and non-window runtimes retain local behavior.
+Instrumented stores report transport status through Devtools. Cross-tab state
+must support structured cloning; failures reach `onError`. Call
+`await store.dispose()` to flush pending persistence and release listeners.
 
 ## Breaking changes and upgrades
 
@@ -160,7 +189,7 @@ Notes:
   devtools snapshots read configured persistence units through `resolveKey`.
 - `resolveKey` lets you control key layout. When omitted, nusm uses
 	`nusm:<storeId>:entire` and `nusm:<storeId>:slice:<sliceKey>`.
-- `subscribe` should emit adapter events for cross-tab or external updates.
+- `subscribe` should emit adapter-defined external events. nusm always attaches it when provided. BroadcastChannel independently shares store state between browser tabs.
 - `pacer` controls debouncing of writes. Use `false` to write immediately.
 
 ### Creating a custom adapter

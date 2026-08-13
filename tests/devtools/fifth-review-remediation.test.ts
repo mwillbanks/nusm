@@ -70,6 +70,7 @@ describe("fifth semantic review remediations", () => {
       { count: 1 },
       {
         adapter,
+        crossTab: true,
         devtools: true,
         persist: { strategy: "entire" },
         storeId: "slow-entire",

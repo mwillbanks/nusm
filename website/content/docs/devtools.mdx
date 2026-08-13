@@ -108,6 +108,12 @@ Stores emit lifecycle events including:
 - `hydrate_start`, `hydrate_applied`, `hydrate_discarded`, and `hydrate_error`
 - `persist_scheduled`, `persist_flush_start`, `persist_flush_ok`, and `persist_flush_error`
 - `adapter_external_event`
+- `cross_tab_connected`, `cross_tab_remote_applied`, and `cross_tab_disposed`
+- `cross_tab_unavailable` and `cross_tab_protocol_error`
 - `devtools_command`, `devtools_command_error`, and `devtools_snapshot_error`
 
 Use the timeline to answer whether a value came from initial state, hydration, an application update, an external adapter event, or a Devtools command.
+
+Store details report BroadcastChannel state as `active`, `disabled`,
+`unavailable`, `skipped_missing_identity`, or `disposed`. Adapter-defined
+external events remain independent of this status.

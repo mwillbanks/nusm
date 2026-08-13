@@ -55,6 +55,7 @@ describe("devtools panel workflows", () => {
     expect(view.getByText("No instrumented stores yet")).toBeInTheDocument();
     await dispatch(target, "snapshot", {
       adapterName: "indexdb",
+      crossTab: "active",
       eventLogCap: 2,
       hydration: { byKey: { entire: "hydrated" }, overall: "hydrated" },
       instanceId: "workspace-instance",
@@ -65,6 +66,8 @@ describe("devtools panel workflows", () => {
     });
 
     fireEvent.click(view.getByRole("button", { name: /workspace/i }));
+    expect(view.getByText("BroadcastChannel")).toBeInTheDocument();
+    expect(view.getAllByText("active").length).toBeGreaterThan(0);
     fireEvent.click(view.getByRole("tab", { name: "memory" }));
     act(() => {
       fireEvent.input(view.getByLabelText("Search keys and values"), {
