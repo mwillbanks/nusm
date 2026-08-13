@@ -55,7 +55,7 @@
   "license": "MIT",
   "lint-staged": {
     "*": [
-      "bunx --bun biome lint --no-errors-on-unmatched --files-ignore-unknown=true"
+      "bunx --bun biome check --write --unsafe --no-errors-on-unmatched --error-on-warnings --reporter=concise --diagnostic-level=error ."
     ]
   },
   "main": "dist/index.js",
