@@ -4,7 +4,18 @@ description: Persist the entire state object or isolate durable slices with expl
 icon: Layers
 ---
 
-Persistence is opt-in. Pass both an `adapter` and a stable `storeId`, then choose one strategy.
+Persistence is opt-in and belongs to each store, not to the application as a whole. Omit both `adapter` and `persist` for in-memory state. Add an adapter and stable `storeId` only when that store must cross a storage boundary.
+
+| Required lifetime | Store configuration |
+| --- | --- |
+| Until reload | No adapter; state stays in memory |
+| Across reloads in the current tab | `createSessionStorageAdapter()` |
+| Across later browser sessions | `createLocalStorageAdapter()` or `createIndexDbAdapter()` |
+| Application-defined | Custom adapter |
+
+These choices can coexist. For example, ephemeral UI state can use an in-memory nusm store while session evidence uses session storage and preferences use local storage.
+
+Within one store, the `slices` strategy persists selected fields and leaves all other fields in memory. Use separate stores when values have separate ownership or lifecycles; use slices when they form one logical store.
 
 ## Entire-store persistence
 

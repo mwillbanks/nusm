@@ -44,6 +44,16 @@ import { batch, Store } from "nusm"
 
 This makes nusm a low-friction choice when some stores need persistence and others do not.
 
+An in-memory nusm store needs no persistence configuration:
+
+```ts
+import { createNusmStore } from "nusm"
+
+const transientUi = createNusmStore({ activeDialog: null })
+```
+
+Using nusm for transient state does not write that state anywhere. It keeps one store type across the application while leaving persistence as a per-store choice.
+
 ## What nusm adds
 
 `createNusmStore` returns a `NusmStore<TState>`, which extends `Store<TState>` with:
@@ -61,13 +71,14 @@ The adapter and persistence options define how state crosses the boundary betwee
 
 ## Choose @tanstack/store directly when
 
-- State is intentionally ephemeral.
+- You want to use TanStack Store without the nusm lifecycle fields or dependencies.
 - You do not need a hydration boundary.
 - Storage is already owned by another application layer.
 - You want the smallest possible API and dependency surface.
 
 ## Choose nusm when
 
+- You want one store contract for both in-memory and persisted state.
 - A store must survive a reload or browser session.
 - You need selected fields persisted without splitting one logical store.
 - Stored data needs validation, transformation, or custom merging.

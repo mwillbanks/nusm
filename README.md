@@ -28,27 +28,47 @@ bun add nusm
 
 ## Quick Start
 
-```ts
-import { createNusmStore, createLocalStorageAdapter } from 'nusm'
+`adapter` and `persist` are optional. This creates an in-memory nusm store:
 
-const store = createNusmStore(
-	{ count: 0 },
-	{
-		storeId: 'counter',
-		adapter: createLocalStorageAdapter(),
-		persist: { strategy: 'entire' },
-	},
+```ts
+import { createNusmStore } from 'nusm'
+
+const workspaceStore = createNusmStore({ selectedId: null, panelOpen: false })
+```
+
+Use the same store API when state needs a different lifetime. Persistence is a
+per-store choice, not an application-wide mode:
+
+```ts
+import { createNusmStore, createSessionStorageAdapter } from 'nusm'
+
+const sessionStore = createNusmStore(
+  { evidence: [], startedAt: Date.now() },
+  {
+    storeId: 'session',
+    adapter: createSessionStorageAdapter(),
+    persist: { strategy: 'entire' },
+  },
 )
 
-await store.ready
-store.setState((state) => ({ count: state.count + 1 }))
+await sessionStore.ready
 ```
+
+The in-memory store resets on reload. The session store survives reloads in its
+current tab, then expires with that tab session. Other stores can independently
+use local storage, IndexedDB, a custom adapter, or no adapter. Slice persistence
+can also keep selected fields while the rest of one store remains memory-only.
 
 ## API
 
 ### `createNusmStore(initialState, options?)`
 
 Creates a nusm-backed store.
+
+Omit `adapter` and `persist` for ordinary in-memory state. In that mode,
+`ready` resolves immediately, `hydration.overall` is `not_configured`, and
+`storeId` is optional. Adding an adapter enables persistence for that store;
+when `persist` is omitted, nusm defaults to entire-store persistence.
 
 ```ts
 import { createNusmStore } from 'nusm'
