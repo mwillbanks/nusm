@@ -4,7 +4,7 @@ description: A persistence-ready state manager built on the small, reactive core
 icon: Sparkles
 ---
 
-**nusm** — Non Uniform State Manager, pronounced “noose em” — is a typed wrapper around [`@tanstack/store`](https://tanstack.com/store) for application state that needs to survive reloads, tabs, or storage boundaries.
+**nusm** — Non Uniform State Manager, pronounced “noose em” — is a typed wrapper around [`@tanstack/store`](https://tanstack.com/store) for application state, whether that state stays in memory or crosses a storage boundary.
 
 It keeps the store model intentionally familiar: read `store.state`, call `store.setState`, and subscribe to changes. When you opt into an adapter, nusm adds a deliberate lifecycle around that core: hydrate, validate, merge, persist, synchronize, and inspect.
 
@@ -39,6 +39,43 @@ initial state
 ```
 
 A nusm store is still a TanStack `Store`. Persistence is additive. Without an adapter, `ready` resolves immediately and `hydration.overall` is `not_configured`.
+
+## One state model, different lifetimes
+
+`adapter` and `persist` are optional. You can keep all application state in nusm while choosing persistence independently for each store:
+
+```ts
+import {
+  createLocalStorageAdapter,
+  createNusmStore,
+  createSessionStorageAdapter,
+} from "nusm"
+
+// Resets on reload.
+export const workspace = createNusmStore({ selectedId: null })
+
+// Survives reloads in this tab, then expires with the tab session.
+export const session = createNusmStore(
+  { evidence: [], startedAt: Date.now() },
+  {
+    adapter: createSessionStorageAdapter(),
+    persist: { strategy: "entire" },
+    storeId: "session",
+  },
+)
+
+// Returns in later browser sessions.
+export const preferences = createNusmStore(
+  { theme: "system" },
+  {
+    adapter: createLocalStorageAdapter(),
+    persist: { strategy: "entire" },
+    storeId: "preferences",
+  },
+)
+```
+
+Choose storage by the state lifetime. State that should not outlive a tab can still belong in a nusm store. Use `sessionStorage` when it should survive a refresh within that tab. Use slice persistence when only selected fields in one store should survive.
 
 ## A small example
 

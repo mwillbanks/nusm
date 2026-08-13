@@ -1,6 +1,6 @@
 import type { TanStackDevtoolsPluginProps } from "@tanstack/devtools";
 import { createRoot, type Root } from "react-dom/client";
-import { NusmDevtoolsPanel } from "./panel";
+import { NusmDevtoolsPanel } from "./panel.js";
 
 type RootEntry = { root: Root; version: number };
 const rootEntries = new WeakMap<HTMLElement, RootEntry>();

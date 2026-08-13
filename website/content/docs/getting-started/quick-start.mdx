@@ -1,6 +1,6 @@
 ---
 title: Quick Start
-description: Install nusm, create a persistent store, wait for hydration, and update it safely.
+description: Install nusm, create a store, choose its lifetime, and update it safely.
 icon: Rocket
 ---
 
@@ -10,7 +10,21 @@ icon: Rocket
 npm install nusm
 ```
 
-## Create a store
+## Start with an in-memory store
+
+Persistence is optional. `createNusmStore` without an adapter creates an ordinary in-memory store:
+
+```ts title="src/stores/counter.ts"
+import { createNusmStore } from "nusm"
+
+export const counterStore = createNusmStore({ count: 0 })
+```
+
+It uses the same `state`, `setState`, `subscribe`, React, and Devtools APIs as a persisted store. Its `ready` promise resolves immediately, `hydration.overall` is `not_configured`, and its state resets when the runtime reloads.
+
+This lets an application standardize on nusm without forcing every store into browser storage.
+
+## Add persistence to the stores that need it
 
 ```ts title="src/stores/counter.ts"
 import {
@@ -29,6 +43,8 @@ export const counterStore = createNusmStore(
 ```
 
 `storeId` is required whenever an adapter is present. It gives the persistence unit a stable identity across reloads. With the default local storage prefix, this store uses `nusm:counter:entire`.
+
+Persistence is configured per store. Mix in-memory, session storage, local storage, IndexedDB, and custom-adapter stores in one application. If you provide an adapter without `persist`, nusm defaults to entire-store persistence, but an explicit strategy makes the intended boundary clear.
 
 ## Wait for hydration
 

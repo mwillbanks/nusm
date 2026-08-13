@@ -1,6 +1,6 @@
-import type { NusmDevtoolsCommandResult } from "./types";
+import type { NusmDevtoolsCommandResult } from "./types.js";
 
-export { getNusmDevtoolsClient } from "./client";
+export { getNusmDevtoolsClient } from "./client.js";
 
 const commandActions = new Set<NusmDevtoolsCommandResult["action"]>([
   "refresh_all",

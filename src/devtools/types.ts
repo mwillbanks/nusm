@@ -2,7 +2,7 @@ import type {
   HydrationStatus,
   NusmDevtoolsSnapshot,
   NusmEvent,
-} from "../types";
+} from "../types.js";
 
 export type NusmDevtoolsLocation = "memory" | "persisted";
 

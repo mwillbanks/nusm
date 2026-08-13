@@ -1,4 +1,4 @@
-import type { NusmDevtoolsPath } from "./types";
+import type { NusmDevtoolsPath } from "./types.js";
 
 const blockedSegments = new Set(["__proto__", "constructor", "prototype"]);
 

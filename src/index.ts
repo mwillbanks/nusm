@@ -1,7 +1,7 @@
-export { createIndexDbAdapter } from "./adapters/indexDbAdapter";
-export { createLocalStorageAdapter } from "./adapters/localStorageAdapter";
-export { createSessionStorageAdapter } from "./adapters/sessionStorageAdapter";
-export { createNusmStore } from "./nusm";
+export { createIndexDbAdapter } from "./adapters/indexDbAdapter.js";
+export { createLocalStorageAdapter } from "./adapters/localStorageAdapter.js";
+export { createSessionStorageAdapter } from "./adapters/sessionStorageAdapter.js";
+export { createNusmStore } from "./nusm.js";
 
 export type {
   AdapterEvent,
@@ -21,4 +21,4 @@ export type {
   ReadonlyHydrationStatus,
   StorageAdapterOptions,
   StorageLike,
-} from "./types";
+} from "./types.js";

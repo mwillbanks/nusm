@@ -1,4 +1,4 @@
-import { projectForDisplay } from "./projection";
+import { projectForDisplay } from "./projection.js";
 
 const isJsonPrimitive = (value: unknown): boolean => {
   if (value === null) return true;

@@ -13,13 +13,15 @@ function createNusmStore<TState>(
 
 Creates a TanStack Store extended with nusm hydration and Devtools identity.
 
+All options are optional. With no adapter, the store remains in memory, `ready` resolves immediately, and `hydration.overall` is `not_configured`. Applications can use this form alongside persisted nusm stores.
+
 ## Options
 
 <auto-type-table path="../../../../src/types.ts" name="CreateNusmStoreOptions" />
 
 ### `adapter`
 
-Enables persistence through a built-in or custom `NusmAdapter`. A stable `storeId` or non-empty Devtools name is required when an adapter is present.
+Enables persistence for this store through a built-in or custom `NusmAdapter`. A stable `storeId` or non-empty Devtools name is required when an adapter is present. Omit it for in-memory state.
 
 ### `persist`
 

@@ -3,9 +3,9 @@ import {
   createReactPanel,
   createReactPlugin,
 } from "@tanstack/devtools-utils/react";
-import { NusmDevtoolsCore } from "./core";
+import { NusmDevtoolsCore } from "./core.js";
 
-export { NusmDevtoolsCore } from "./core";
+export { NusmDevtoolsCore } from "./core.js";
 
 export const [NusmReactDevtoolsPanel, NoOpNusmReactDevtoolsPanel] =
   createReactPanel<TanStackDevtoolsPluginProps, NusmDevtoolsCore>(
