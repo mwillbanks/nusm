@@ -1,5 +1,5 @@
-import type { InspectionLimits, InspectorRow } from "./panel-model";
-import type { NusmDevtoolsPath } from "./types";
+import type { InspectionLimits, InspectorRow } from "./panel-model.js";
+import type { NusmDevtoolsPath } from "./types.js";
 
 type InspectionContext = {
   ancestors: Set<object>;

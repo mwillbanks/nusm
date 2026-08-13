@@ -1,5 +1,5 @@
-import type { NusmAdapter, StorageAdapterOptions } from "../types";
-import { createStorageAdapter } from "./storageAdapter";
+import type { NusmAdapter, StorageAdapterOptions } from "../types.js";
+import { createStorageAdapter } from "./storageAdapter.js";
 
 export const createSessionStorageAdapter = (
   options?: StorageAdapterOptions,

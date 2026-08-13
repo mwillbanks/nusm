@@ -1,5 +1,5 @@
 import superjson from "superjson";
-import type { IndexDbAdapterOptions, NusmAdapter } from "../types";
+import type { IndexDbAdapterOptions, NusmAdapter } from "../types.js";
 
 const openIndexDb = (
   dbName: string,

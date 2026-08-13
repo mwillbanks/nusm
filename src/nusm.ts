@@ -3,12 +3,15 @@ import { AsyncDebouncer } from "@tanstack/pacer";
 import { batch, Store } from "@tanstack/store";
 import { deepEqual } from "fast-equals";
 
-import { createNusmDevtoolsEmitter } from "./devtools/client";
-import { removeValueAtPath, setValueAtPath } from "./devtools/path";
+import { createNusmDevtoolsEmitter } from "./devtools/client.js";
+import { removeValueAtPath, setValueAtPath } from "./devtools/path.js";
 
-import { isRoundTrippableForDevtools } from "./devtools/serialize";
+import { isRoundTrippableForDevtools } from "./devtools/serialize.js";
 
-import type { NusmDevtoolsCommand, NusmDevtoolsPath } from "./devtools/types";
+import type {
+  NusmDevtoolsCommand,
+  NusmDevtoolsPath,
+} from "./devtools/types.js";
 import type {
   AdapterEvent,
   CreateNusmStoreOptions,
@@ -16,7 +19,7 @@ import type {
   HydrationStatus,
   NusmDevtoolsSnapshot,
   NusmStore,
-} from "./types";
+} from "./types.js";
 
 const deepMerge = createDeepmerge({
   mergeArray: () => (_target, source) => source,

@@ -3,7 +3,7 @@
 import { deepEqual, shallowEqual } from "fast-equals";
 import { useRef, useSyncExternalStore } from "react";
 
-import type { NusmStore } from "../types";
+import type { NusmStore } from "../types.js";
 
 export type NoInfer<T> = [T][T extends unknown ? 0 : never];
 

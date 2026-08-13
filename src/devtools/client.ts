@@ -3,12 +3,12 @@ import type {
   HydrationStatus,
   NusmDevtoolsSnapshot,
   NusmEvent,
-} from "../types";
+} from "../types.js";
 import type {
   NusmDevtoolsCommand,
   NusmDevtoolsCommandResult,
   NusmDevtoolsEventMap,
-} from "./types";
+} from "./types.js";
 
 const devtoolsClients = new WeakMap<
   object,

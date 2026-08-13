@@ -1,5 +1,5 @@
-import { flattenInspectorValue } from "./flatten";
-import type { NusmDevtoolsPath } from "./types";
+import { flattenInspectorValue } from "./flatten.js";
+import type { NusmDevtoolsPath } from "./types.js";
 
 export type InspectorRow = {
   depth: number;

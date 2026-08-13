@@ -1,14 +1,14 @@
-export { NusmLogo } from "./nusm-logo";
+export { NusmLogo } from "./nusm-logo.js";
 export {
   createNoOpNusmDevtoolsPlugin,
   createNusmDevtoolsPlugin,
   NoOpNusmReactDevtoolsPanel,
   NusmDevtoolsCore,
   NusmReactDevtoolsPanel,
-} from "./plugin";
+} from "./plugin.js";
 export type {
   NusmDevtoolsCommand,
   NusmDevtoolsCommandInput,
   NusmDevtoolsLocation,
   NusmDevtoolsPath,
-} from "./types";
+} from "./types.js";

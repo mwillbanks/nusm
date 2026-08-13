@@ -4,7 +4,7 @@ import type {
   NusmAdapter,
   StorageAdapterOptions,
   StorageLike,
-} from "../types";
+} from "../types.js";
 
 export const createStorageAdapter = (
   name: string,
