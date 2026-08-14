@@ -17,9 +17,11 @@ const validateSyncCandidate = (candidate: unknown, context: NusmSyncContext) =>
 const createSource = () => {
   const listeners = new Set<(event: NusmSyncEvent) => void>();
   const published: NusmSyncEvent[] = [];
+  let starts = 0;
   const source: NusmSyncSource = {
     publish: (event) => published.push(event),
     start: (listener) => {
+      starts += 1;
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
@@ -30,6 +32,9 @@ const createSource = () => {
     },
     published,
     source,
+    get starts() {
+      return starts;
+    },
   };
 };
 
@@ -122,6 +127,43 @@ describe("synchronization communication", () => {
     expect(global.published.at(-1)?.state).toEqual({ value: 1 });
     await enabled.dispose();
     await disabled.dispose();
+  });
+
+  test("retains the global validator for opted-out adapter events", async () => {
+    const memory = createMemoryAdapter({ withSubscribe: true });
+    const global = createSource();
+    const contexts: NusmSyncContext[] = [];
+    const validator = (candidate: unknown, context: NusmSyncContext) => {
+      contexts.push(context);
+      return (
+        typeof candidate === "object" &&
+        candidate !== null &&
+        (candidate as { value?: unknown }).value === 1
+      );
+    };
+    configureNusm({ sync: { source: global.source, validator } });
+    const store = createNusmStore(
+      { value: 0 },
+      {
+        adapter: memory.adapter,
+        persist: { strategy: "entire" },
+        storeId: "opted-out-adapter",
+        sync: false,
+      },
+    );
+    await store.ready;
+    expect(global.starts).toBe(0);
+    const key = "nusm:opted-out-adapter:entire";
+    memory.store.set(key, { value: 2 });
+    memory.emit({ key, type: "set" });
+    await settle();
+    expect(store.state).toEqual({ value: 0 });
+    memory.store.set(key, { value: 1 });
+    memory.emit({ key, type: "set" });
+    await settle();
+    expect(store.state).toEqual({ value: 1 });
+    expect(contexts.some((context) => context.kind === "adapter")).toBe(true);
+    await store.dispose();
   });
 
   test("requires an explicit storeId for persistence and synchronization", () => {

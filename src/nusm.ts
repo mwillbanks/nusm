@@ -160,7 +160,7 @@ export function createNusmStore<TState>(
         globalSync?.source);
   const syncValidator = (
     storeSync === false
-      ? undefined
+      ? globalSync?.validator
       : (storeSync?.validator ?? globalSync?.validator)
   ) as NusmSyncValidator<TState> | undefined;
   const syncOptimistic =
