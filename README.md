@@ -85,7 +85,7 @@ const nusm = createNusmStore(initialState, {
 
 Return value:
 
-- A @tanstack/store instance extended with `ready`, `dispose`, readonly `isReady`, and an immutable `hydration` snapshot. `hydration.overall` and each `hydration.byKey` entry report `pending`, `hydrated`, `discarded`, `error`, or `not_configured`; read a fresh snapshot after lifecycle events rather than mutating it.
+- A @tanstack/store instance extended with `ready`, `dispose`, readonly `isReady`, and an immutable `hydration` snapshot. `hydration.overall` and each `hydration.byKey` entry report `pending`, `hydrated`, `discarded`, `error`, `cancelled`, or `not_configured`; read a fresh snapshot after lifecycle events rather than mutating it.
 
 ### Authenticated synchronization
 

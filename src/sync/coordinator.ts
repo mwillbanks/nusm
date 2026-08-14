@@ -828,58 +828,69 @@ export const createNusmSyncCoordinator = <TState>(
     queue = queue.then(() => processIncomingEvent(event));
     return queue;
   };
+  const startSource = async (source: NusmSyncSource<TState>) => {
+    try {
+      const cleanup = await source.start((event) => {
+        void enqueue(event);
+      }, sourceContext);
+      if (typeof cleanup !== "function") return;
+      if (disposed) {
+        try {
+          await cleanup();
+        } catch (cleanupError) {
+          report(cleanupError);
+        }
+      } else cleanups.push(cleanup);
+    } catch (error) {
+      if (!disposed) {
+        setStatus("unavailable");
+        report(toError(error));
+      }
+    }
+  };
+  const startSources = async () => {
+    for (const source of sources) {
+      if (disposed) return;
+      await startSource(source);
+    }
+    if (disposed) return;
+    if (status === "pending") setStatus("active");
+  };
+  const startDiscovery = () => {
+    if (disposed || sources.length === 0 || discoveryTimer) return;
+    let discoveryAttempt = 0;
+    const hasHydratingPeer = () =>
+      [...peers.values()].some((peer) => peer.phase === "hydrating");
+    const mayCompleteDiscovery = () =>
+      !earlierHydratingPeer() && !hasHydratingPeer();
+    const scheduleDiscovery = (discover: () => void) => {
+      const delay =
+        discoveryAttempt < 4 ? [50, 100, 200, 400][discoveryAttempt++] : 5000;
+      discoveryTimer = setTimeout(discover, delay);
+    };
+    const canConvergeDiscovery = () => {
+      const leader = peers.size > 0 ? leaderId() : undefined;
+      if (leader === localId && peers.size > 0) return true;
+      return !(leader || discoveryAttempt < 4 || !mayCompleteDiscovery());
+    };
+    const discover = () => {
+      discoveryTimer = undefined;
+      if (disposed || converged) return;
+      if (localPhase !== "ready") {
+        discoveryTimer = setTimeout(discover, 50);
+        return;
+      }
+      if (canConvergeDiscovery()) return markConverged();
+      scheduleDiscovery(discover);
+    };
+    discoveryTimer = setTimeout(discover, 50);
+  };
   const start = async () => {
     if (started) return started;
     started = (async () => {
       if (disposed || sources.length === 0) return;
-      for (const source of sources) {
-        try {
-          const cleanup = await source.start((event) => {
-            void enqueue(event);
-          }, sourceContext);
-          if (typeof cleanup === "function") cleanups.push(cleanup);
-        } catch (error) {
-          setStatus("unavailable");
-          report(toError(error));
-        }
-      }
-      if (status === "pending") setStatus("active");
-      if (sources.length > 0 && !discoveryTimer) {
-        let discoveryAttempt = 0;
-        const hasHydratingPeer = () =>
-          [...peers.values()].some((peer) => peer.phase === "hydrating");
-        const mayCompleteDiscovery = () =>
-          !earlierHydratingPeer() && !hasHydratingPeer();
-        const scheduleDiscovery = (discover: () => void) => {
-          if (discoveryAttempt < 4) {
-            discoveryTimer = setTimeout(
-              discover,
-              [50, 100, 200, 400][discoveryAttempt],
-            );
-            discoveryAttempt += 1;
-            return;
-          }
-          discoveryTimer = setTimeout(discover, 5000);
-        };
-        const canConvergeDiscovery = () => {
-          const leader = peers.size > 0 ? leaderId() : undefined;
-          if (leader === localId && peers.size > 0) return true;
-          if (leader || discoveryAttempt < 4 || !mayCompleteDiscovery())
-            return false;
-          return true;
-        };
-        const discover = () => {
-          discoveryTimer = undefined;
-          if (converged) return;
-          if (localPhase !== "ready") {
-            discoveryTimer = setTimeout(discover, 50);
-            return;
-          }
-          if (canConvergeDiscovery()) return markConverged();
-          scheduleDiscovery(discover);
-        };
-        discoveryTimer = setTimeout(discover, 50);
-      }
+      await startSources();
+      startDiscovery();
     })();
     return started;
   };
@@ -1009,19 +1020,34 @@ export const createNusmSyncCoordinator = <TState>(
       report(error);
     }
   };
-  const dispose = async () => {
-    if (disposed) return queue;
-    disposed = true;
+  const clearCoordinatorState = () => {
     if (discoveryTimer) clearTimeout(discoveryTimer);
     if (hydrationHeartbeat) clearInterval(hydrationHeartbeat);
+    discoveryTimer = undefined;
+    hydrationHeartbeat = undefined;
     setStatus("disposed");
     pendingWrites.clear();
+    for (const request of pendingRequests.values())
+      if (request.timer) clearTimeout(request.timer);
+    pendingRequests.clear();
+    for (const resolve of convergenceWaiters.splice(0)) resolve();
+    seenEvents.clear();
+    queue = Promise.resolve();
+    publishQueue = Promise.resolve();
+  };
+  const disposeResources = async () => {
     const failures: unknown[] = [];
     for (const cleanup of cleanups.splice(0))
       await runCleanup(cleanup, failures);
     for (const source of sources)
       await runCleanup(() => source.dispose?.(sourceContext), failures);
     if (failures.length > 0) throw new AggregateError(failures);
+  };
+  const dispose = async () => {
+    if (disposed) return queue;
+    disposed = true;
+    clearCoordinatorState();
+    await disposeResources();
   };
 
   return {

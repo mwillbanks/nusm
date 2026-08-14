@@ -11,6 +11,10 @@ import type {
   NusmDevtoolsCommand,
   NusmDevtoolsPath,
 } from "./devtools/types.js";
+import {
+  createStoreLifecycle,
+  runLifecycleCleanup,
+} from "./store/lifecycle.js";
 import { createNusmSyncCoordinator } from "./sync/coordinator.js";
 import type {
   NusmSyncEvent,
@@ -135,6 +139,13 @@ export function createNusmStore<TState>(
   const slices = persist?.slices ?? [];
   const hydrateConfig = persist?.hydrate;
   const onError = options?.onError;
+  const reportError = (error: unknown) => {
+    try {
+      onError?.(error);
+    } catch {
+      // Error reporters are observers and must not interrupt lifecycle work.
+    }
+  };
   const storeId = resolveStoreId(options);
   const devtoolsInstanceId = nextDevtoolsInstanceId();
   const storeIdValue = storeId ?? devtoolsInstanceId;
@@ -180,7 +191,7 @@ export function createNusmStore<TState>(
       devtoolsInstanceId,
     );
   let lastFlushAt: number | undefined;
-  let disposed = false;
+  const lifecycle = createStoreLifecycle();
   let synchronizationStatus: NusmSyncStatus = syncSources
     ? "pending"
     : "disabled";
@@ -227,7 +238,7 @@ export function createNusmStore<TState>(
     synchronizationRejectionCount += 1;
     const rejection = error instanceof Error ? error : new Error(String(error));
     try {
-      onError?.(rejection);
+      reportError(rejection);
     } catch {
       // User error reporters must not suppress the rejection event.
     }
@@ -243,6 +254,12 @@ export function createNusmStore<TState>(
     readyResolve = resolve;
     readyReject = reject;
   });
+
+  const createAbortError = () =>
+    new DOMException("Store disposal interrupted hydration.", "AbortError");
+  const assertHydrationCurrent = (generation: number) => {
+    if (!lifecycle.isCurrent(generation)) throw createAbortError();
+  };
 
   let isReady = false;
   let suppressPersist = false;
@@ -379,7 +396,7 @@ export function createNusmStore<TState>(
       lastFlushAt = Date.now();
     } finally {
       releasePendingWrite?.();
-      replayDeferredAdapterEvents?.();
+      if (!lifecycle.disposed) replayDeferredAdapterEvents?.();
     }
   };
   const persistHydrationBaseline = async (entry: {
@@ -387,7 +404,7 @@ export function createNusmStore<TState>(
     payload: unknown;
     sliceKey?: string;
   }) => {
-    if (!adapter) return;
+    if (!adapter || lifecycle.disposed) throw createAbortError();
     devtoolsEmitter?.emitEvent({
       key: entry.key,
       sliceKey: entry.sliceKey,
@@ -406,6 +423,7 @@ export function createNusmStore<TState>(
         () => adapter.setItem(entry.key, entry.payload),
         entry.payload,
       );
+      if (lifecycle.disposed) throw createAbortError();
       devtoolsEmitter?.emitEvent({
         key: entry.key,
         sliceKey: entry.sliceKey,
@@ -414,6 +432,7 @@ export function createNusmStore<TState>(
         type: "persist_flush_ok",
       });
     } catch (error) {
+      if (lifecycle.disposed) return;
       devtoolsEmitter?.emitEvent({
         detail: error,
         key: entry.key,
@@ -426,7 +445,7 @@ export function createNusmStore<TState>(
     }
   };
 
-  const performFlushQueue = async () => {
+  const performFlushQueue = async (rejectFailures = false) => {
     if (!adapter || queuedPayloads.size === 0) return;
     devtoolsEmitter?.emitEvent({
       storeId: storeIdValue,
@@ -440,6 +459,7 @@ export function createNusmStore<TState>(
     queuedPayloads.clear();
     queuedGenerations.clear();
 
+    const failures: unknown[] = [];
     await Promise.all(
       entries.map(async (entry) => {
         if (entry.generation !== persistenceKeyGenerations.get(entry.key))
@@ -467,11 +487,14 @@ export function createNusmStore<TState>(
             ts: Date.now(),
             type: "persist_flush_error",
           });
-          onError?.(error);
+          failures.push(error);
+          reportError(error);
         }
       }),
     );
     emitDevtoolsSnapshot();
+    if (rejectFailures && failures.length > 0)
+      throw new AggregateError(failures, "Persistence flush failed.");
   };
   let activeFlush: Promise<void> | undefined;
   const serializePersistenceOperation = (operation: () => Promise<void>) => {
@@ -483,7 +506,8 @@ export function createNusmStore<TState>(
     });
     return requested;
   };
-  const flushQueue = () => serializePersistenceOperation(performFlushQueue);
+  const flushQueue = (rejectFailures = false) =>
+    serializePersistenceOperation(() => performFlushQueue(rejectFailures));
 
   const pacerConfig = adapter?.pacer;
   const pacer =
@@ -532,7 +556,12 @@ export function createNusmStore<TState>(
   let previousState = store.state;
   let supersededPersistenceState: { value: TState } | undefined;
   const broadcastLocalState = (currentVal: TState, changedKeys?: string[]) => {
-    if (!syncCoordinator || suppressSynchronization || disposed || !storeId)
+    if (
+      !syncCoordinator ||
+      suppressSynchronization ||
+      lifecycle.disposed ||
+      !storeId
+    )
       return;
     syncRevision = syncCoordinator.nextRevision();
     const event: NusmSyncEvent<TState> = {
@@ -607,6 +636,7 @@ export function createNusmStore<TState>(
   };
   const subscribeToStore = () => {
     const subscription = store.subscribe((currentVal) => {
+      if (lifecycle.disposed) return;
       const prevVal = previousState;
       previousState = currentVal;
       if (currentVal === prevVal) return;
@@ -637,7 +667,7 @@ export function createNusmStore<TState>(
     sourceId: string,
     changedKeys?: readonly string[],
   ) => {
-    if (disposed) return;
+    if (lifecycle.disposed) return;
     if (deepEqual(store.state, nextState)) return;
     restrictedPersistenceKeys = changedKeys;
     suppressSynchronization = true;
@@ -650,7 +680,7 @@ export function createNusmStore<TState>(
   };
 
   // fallow-ignore-next-line complexity
-  const hydrateEntire = async (): Promise<TState> => {
+  const hydrateEntire = async (generation: number): Promise<TState> => {
     const key = resolveKey({ kind: "entire" });
     if (!adapter) return initialState;
 
@@ -666,8 +696,10 @@ export function createNusmStore<TState>(
 
     try {
       const raw = await readAdapterItem(key);
+      assertHydrationCurrent(generation);
       if (raw == null) {
         await persistHydrationBaseline({ key, payload: initialState });
+        assertHydrationCurrent(generation);
         hydrationStatus.byKey.entire = "hydrated";
         return initialState;
       }
@@ -700,6 +732,7 @@ export function createNusmStore<TState>(
       hydrationStatus.byKey.entire = "hydrated";
       return merged;
     } catch (error) {
+      if (!lifecycle.isCurrent(generation)) throw createAbortError();
       hydrationStatus.byKey.entire = "error";
       devtoolsEmitter?.emitEvent({
         detail: error,
@@ -707,13 +740,13 @@ export function createNusmStore<TState>(
         ts: Date.now(),
         type: "hydrate_error",
       });
-      onError?.(error);
+      reportError(error);
       return initialState;
     }
   };
 
   // fallow-ignore-next-line complexity
-  const hydrateSlices = async (): Promise<TState> => {
+  const hydrateSlices = async (generation: number): Promise<TState> => {
     let nextState = initialState;
     const missingSlices: typeof slices = [];
     const hydratedSliceValues: Array<{
@@ -737,6 +770,7 @@ export function createNusmStore<TState>(
       const key = resolveKey({ kind: "slice", sliceKey: slice.key });
       try {
         const raw = await adapter?.getItem(key);
+        assertHydrationCurrent(generation);
         if (raw == null) {
           missingSlices.push(slice);
           continue;
@@ -764,6 +798,7 @@ export function createNusmStore<TState>(
         hydratedSliceValues.push({ slice, value: persistedValue });
         defineRecordValue(hydrationStatus.byKey, slice.key, "hydrated");
       } catch (error) {
+        if (!lifecycle.isCurrent(generation)) throw createAbortError();
         defineRecordValue(hydrationStatus.byKey, slice.key, "error");
         devtoolsEmitter?.emitEvent({
           detail: error,
@@ -772,7 +807,7 @@ export function createNusmStore<TState>(
           ts: Date.now(),
           type: "hydrate_error",
         });
-        onError?.(error);
+        reportError(error);
       }
     }
 
@@ -808,8 +843,10 @@ export function createNusmStore<TState>(
           payload: baseline,
           sliceKey: slice.key,
         });
+        assertHydrationCurrent(generation);
         defineRecordValue(hydrationStatus.byKey, slice.key, "hydrated");
       } catch (error) {
+        if (!lifecycle.isCurrent(generation)) throw createAbortError();
         defineRecordValue(hydrationStatus.byKey, slice.key, "error");
         devtoolsEmitter?.emitEvent({
           detail: error,
@@ -818,7 +855,7 @@ export function createNusmStore<TState>(
           ts: Date.now(),
           type: "hydrate_error",
         });
-        onError?.(error);
+        reportError(error);
       }
     }
 
@@ -836,32 +873,44 @@ export function createNusmStore<TState>(
     }
   };
 
-  const completeHydration = async (emitHydration: boolean) => {
+  const completeHydration = async (
+    emitHydration: boolean,
+    generation: number,
+  ) => {
+    assertHydrationCurrent(generation);
     hydratedForSync = true;
     const announce = syncCoordinator?.announceReady(store.state);
     if (syncCoordinator && syncOptimistic) void announce;
     else await announce;
+    assertHydrationCurrent(generation);
     if (syncCoordinator && !syncOptimistic)
       await syncCoordinator.waitForConvergence();
-    for (const event of deferredSyncEvents.splice(0))
+    assertHydrationCurrent(generation);
+    for (const event of deferredSyncEvents.splice(0)) {
       await syncCoordinator?.enqueue(event);
+      assertHydrationCurrent(generation);
+    }
+    assertHydrationCurrent(generation);
     isReady = true;
     readyResolve();
     if (emitHydration)
       devtoolsEmitter?.emitHydration(storeIdValue, getHydrationSnapshot());
     emitDevtoolsSnapshot();
   };
-  const hydrateWithoutAdapter = async () => {
-    await completeHydration(false);
+  const hydrateWithoutAdapter = async (generation: number) => {
+    await completeHydration(false, generation);
   };
-  const hydrateWithAdapter = async () => {
+  const hydrateWithAdapter = async (generation: number) => {
     devtoolsEmitter?.emitEvent({
       storeId: storeIdValue,
       ts: Date.now(),
       type: "hydrate_start",
     });
     const hydratedState =
-      strategy === "entire" ? await hydrateEntire() : await hydrateSlices();
+      strategy === "entire"
+        ? await hydrateEntire(generation)
+        : await hydrateSlices(generation);
+    assertHydrationCurrent(generation);
     applyState(hydratedState);
     finalizeHydration();
     devtoolsEmitter?.emitEvent({
@@ -869,17 +918,21 @@ export function createNusmStore<TState>(
       ts: Date.now(),
       type: "hydrate_applied",
     });
-    await completeHydration(true);
+    await completeHydration(true, generation);
   };
   const hydrate = async () => {
+    const generation = lifecycle.generation;
     try {
       if (syncCoordinator) {
         await syncCoordinator.start();
+        assertHydrationCurrent(generation);
         await syncCoordinator.announceHydrating(initialState);
+        assertHydrationCurrent(generation);
       }
-      if (!adapter) await hydrateWithoutAdapter();
-      else await hydrateWithAdapter();
+      if (!adapter) await hydrateWithoutAdapter(generation);
+      else await hydrateWithAdapter(generation);
     } catch (error) {
+      if (!lifecycle.isCurrent(generation)) return;
       hydrationStatus.overall = "error";
       devtoolsEmitter?.emitEvent({
         detail: error,
@@ -887,7 +940,7 @@ export function createNusmStore<TState>(
         ts: Date.now(),
         type: "hydrate_error",
       });
-      onError?.(error);
+      reportError(error);
       readyReject(error);
     }
   };
@@ -931,7 +984,7 @@ export function createNusmStore<TState>(
     event: AdapterEvent,
     generation?: number,
   ) => {
-    if (!adapter) return;
+    if (!adapter || lifecycle.disposed) return;
 
     if (event.key && syncCoordinator?.isPendingWrite(event.key)) {
       const deferred = deferredAdapterEvents.get(event.key) ?? [];
@@ -947,6 +1000,7 @@ export function createNusmStore<TState>(
     }
 
     const applyExternalState = (nextState: TState) => {
+      if (lifecycle.disposed) return;
       if (deepEqual(store.state, nextState)) return;
       suppressPersist = true;
       store.setState(() => nextState);
@@ -964,6 +1018,7 @@ export function createNusmStore<TState>(
       const candidateGeneration = externalStateGeneration;
       if (strategy === "entire") {
         const validated = await validateExternalCandidate(initialState, event);
+        if (lifecycle.disposed) return;
         if (candidateGeneration !== externalStateGeneration) return;
         if (validated.ok) applyExternalState(validated.value);
         return;
@@ -974,6 +1029,7 @@ export function createNusmStore<TState>(
         nextState = slice.apply(nextState, slice.select(initialState));
       }
       const validated = await validateExternalCandidate(nextState, event);
+      if (lifecycle.disposed) return;
       if (candidateGeneration !== externalStateGeneration) return;
       if (validated.ok) applyExternalState(validated.value);
       return;
@@ -998,6 +1054,7 @@ export function createNusmStore<TState>(
       const candidateGeneration = externalStateGeneration;
       if (unit.kind === "entire") {
         const validated = await validateExternalCandidate(initialState, event);
+        if (lifecycle.disposed) return;
         if (candidateGeneration !== externalStateGeneration) return;
         if (validated.ok) applyExternalState(validated.value);
       } else {
@@ -1010,6 +1067,7 @@ export function createNusmStore<TState>(
             slice.apply(store.state, resetValue),
             event,
           );
+          if (lifecycle.disposed) return;
           if (candidateGeneration !== externalStateGeneration) return;
           if (validated.ok) applyExternalState(validated.value);
         }
@@ -1026,6 +1084,7 @@ export function createNusmStore<TState>(
       )
         return;
       const raw = await readAdapterItem(event.key);
+      if (lifecycle.disposed) return;
       if (raw == null) return;
       if (
         (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
@@ -1040,6 +1099,7 @@ export function createNusmStore<TState>(
           })
         : deepMerge(initialState, raw);
       const validated = await validateExternalCandidate(merged, event);
+      if (lifecycle.disposed) return;
       if (candidateGeneration !== externalStateGeneration) return;
       if (
         (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
@@ -1057,6 +1117,7 @@ export function createNusmStore<TState>(
       )
         return;
       const raw = await readAdapterItem(event.key);
+      if (lifecycle.disposed) return;
       if (raw == null) return;
       if (
         (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
@@ -1068,6 +1129,7 @@ export function createNusmStore<TState>(
         slice.apply(store.state, raw),
         event,
       );
+      if (lifecycle.disposed) return;
       if (candidateGeneration !== externalStateGeneration) return;
       if (
         (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
@@ -1094,6 +1156,7 @@ export function createNusmStore<TState>(
     );
   };
   const applySyncStateEvent = async (event: NusmSyncEvent<TState>) => {
+    if (lifecycle.disposed) return;
     if (!Object.hasOwn(event, "state")) return;
     if (!hydratedForSync) {
       deferredSyncEvents.push(event);
@@ -1112,6 +1175,7 @@ export function createNusmStore<TState>(
     );
   };
   const handleCoordinatorEvent = async (event: NusmSyncEvent<TState>) => {
+    if (lifecycle.disposed) return;
     if (event.kind === "adapter") {
       if (event.adapterEvent)
         await handleAdapterEvent(event.adapterEvent, event.generation);
@@ -1124,7 +1188,7 @@ export function createNusmStore<TState>(
   if (storeId) {
     syncCoordinator = createNusmSyncCoordinator<TState>({
       onError: (error) => {
-        onError?.(error);
+        reportError(error);
         emitSynchronizationEvent("synchronization_protocol_error", error);
       },
       onEvent: handleCoordinatorEvent,
@@ -1158,7 +1222,7 @@ export function createNusmStore<TState>(
   }
 
   replayDeferredAdapterEvents = () => {
-    if (!syncCoordinator) return;
+    if (!syncCoordinator || lifecycle.disposed) return;
     for (const [key, events] of deferredAdapterEvents) {
       if (
         (key === "*" && syncCoordinator.hasPendingWrites()) ||
@@ -1180,6 +1244,7 @@ export function createNusmStore<TState>(
   }> = [];
   if (adapter?.subscribe) {
     const stopAdapterSubscription = adapter.subscribe((event) => {
+      if (lifecycle.disposed) return;
       if (!isReady) {
         pendingAdapterEvents.push({
           event,
@@ -1257,29 +1322,33 @@ export function createNusmStore<TState>(
   };
 
   let snapshotSequence = 0;
+  const emitSnapshot = (persisted: unknown) => {
+    devtoolsEmitter?.emitSnapshot({
+      adapterName: adapter?.name,
+      eventLogCap,
+      hydration: getHydrationSnapshot(),
+      initial: initialState,
+      isReady,
+      lastFlushAt,
+      memory: store.state,
+      pendingKeys: Array.from(queuedPayloads.keys()),
+      persisted,
+      persistenceStrategy: adapter ? strategy : undefined,
+      storeId: storeIdValue,
+      synchronization: resolveSynchronization(persisted),
+      synchronizationStatus,
+    });
+  };
   const emitDevtoolsSnapshot = async (): Promise<string | undefined> => {
-    if (!devtoolsEmitter) return undefined;
+    if (!devtoolsEmitter || lifecycle.disposed) return undefined;
     const sequence = ++snapshotSequence;
     try {
       const persisted = await readPersistedSnapshot();
-      if (sequence !== snapshotSequence) return undefined;
-      devtoolsEmitter.emitSnapshot({
-        adapterName: adapter?.name,
-        eventLogCap,
-        hydration: getHydrationSnapshot(),
-        initial: initialState,
-        isReady,
-        lastFlushAt,
-        memory: store.state,
-        pendingKeys: Array.from(queuedPayloads.keys()),
-        persisted,
-        persistenceStrategy: adapter ? strategy : undefined,
-        storeId: storeIdValue,
-        synchronization: resolveSynchronization(persisted),
-        synchronizationStatus,
-      });
+      if (lifecycle.disposed || sequence !== snapshotSequence) return undefined;
+      emitSnapshot(persisted);
       return undefined;
     } catch (error) {
+      if (lifecycle.disposed) return;
       const message = error instanceof Error ? error.message : String(error);
       devtoolsEmitter.emitEvent({
         detail: message,
@@ -1287,7 +1356,7 @@ export function createNusmStore<TState>(
         ts: Date.now(),
         type: "devtools_snapshot_error",
       });
-      onError?.(error);
+      reportError(error);
       return message;
     }
   };
@@ -1520,11 +1589,7 @@ export function createNusmStore<TState>(
     applyState(nextValue as TState);
   };
 
-  const performDevtoolsMutation = async (command: NusmDevtoolsCommand) => {
-    if (command.action === "refresh" || command.action === "refresh_all")
-      return;
-    if (!isReady)
-      throw new Error("Store hydration must finish before Devtools mutations.");
+  const performMemoryMutation = (command: NusmDevtoolsCommand) => {
     if (command.action === "replace_memory") {
       assertDevtoolsValue(command.value);
       applyState(command.value as TState);
@@ -1534,11 +1599,26 @@ export function createNusmStore<TState>(
       applyState(initialState);
       return;
     }
+  };
+  const performDevtoolsMutation = async (command: NusmDevtoolsCommand) => {
+    if (command.action === "refresh" || command.action === "refresh_all")
+      return;
+    if (!isReady)
+      throw new Error("Store hydration must finish before Devtools mutations.");
+    if (
+      command.action === "replace_memory" ||
+      command.action === "reset_memory"
+    ) {
+      performMemoryMutation(command);
+      return;
+    }
     if (command.action === "replace_persisted") {
       await replacePersistedValue(command.value);
+      if (lifecycle.disposed) return;
       return;
     }
     await performPathMutation(command);
+    if (lifecycle.disposed) return;
   };
 
   const assertNonEmptyCommandString = (value: unknown, field: string) => {
@@ -1592,7 +1672,34 @@ export function createNusmStore<TState>(
       throw new Error("Devtools command location must be memory or persisted.");
     assertDevtoolsPath(record.path);
   };
+  const reportDevtoolsCommandError = (
+    command: NusmDevtoolsCommand,
+    record: Record<string, unknown>,
+    error: unknown,
+  ) => {
+    if (lifecycle.disposed) return;
+    const message = error instanceof Error ? error.message : String(error);
+    devtoolsEmitter?.emitEvent({
+      detail: message,
+      storeId: storeIdValue,
+      ts: Date.now(),
+      type: "devtools_command_error",
+    });
+    if (
+      typeof record.commandId === "string" &&
+      typeof record.action === "string"
+    )
+      devtoolsEmitter?.emitCommandResult({
+        action: command.action,
+        commandId: record.commandId,
+        error: message,
+        status: "error",
+        storeId: storeIdValue,
+      });
+    reportError(error);
+  };
   const applyDevtoolsCommand = async (command: NusmDevtoolsCommand) => {
+    if (lifecycle.disposed) return;
     const record = command as unknown as Record<string, unknown>;
     if (
       record.action !== "refresh_all" &&
@@ -1602,29 +1709,13 @@ export function createNusmStore<TState>(
     try {
       assertDevtoolsCommand(command);
       await performDevtoolsMutation(command);
+      if (lifecycle.disposed) return;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      devtoolsEmitter?.emitEvent({
-        detail: message,
-        storeId: storeIdValue,
-        ts: Date.now(),
-        type: "devtools_command_error",
-      });
-      if (
-        typeof record.commandId === "string" &&
-        typeof record.action === "string"
-      )
-        devtoolsEmitter?.emitCommandResult({
-          action: command.action,
-          commandId: record.commandId,
-          error: message,
-          status: "error",
-          storeId: storeIdValue,
-        });
-      onError?.(error);
+      reportDevtoolsCommandError(command, record, error);
       return;
     }
     const snapshotError = await emitDevtoolsSnapshot();
+    if (lifecycle.disposed) return;
     devtoolsEmitter?.emitEvent({
       detail: command.action,
       storeId: storeIdValue,
@@ -1647,6 +1738,7 @@ export function createNusmStore<TState>(
 
   subscribeToStore();
   void hydrate().then(async () => {
+    if (lifecycle.disposed) return;
     if (pendingAdapterEvents.length > 0) {
       for (const pending of pendingAdapterEvents.splice(0)) {
         await syncCoordinator?.enqueueAdapterEvent(
@@ -1666,20 +1758,41 @@ export function createNusmStore<TState>(
   })();
   Object.defineProperty(store, "hydration", { get: getHydrationSnapshot });
   store.ready = ready;
-  let disposePromise: Promise<void> | undefined;
   store.dispose = () => {
-    if (disposePromise) return disposePromise;
-    disposed = true;
-    pacer?.cancel();
-    for (const cleanup of cleanupTasks.splice(0)) cleanup();
-    synchronizationStatus = "disposed";
-    emitSynchronizationEvent("synchronization_disposed");
-    disposePromise = Promise.resolve(syncCoordinator?.dispose())
-      .then(() => flushQueue())
-      .finally(() => {
-        void emitDevtoolsSnapshot();
-      });
-    return disposePromise;
+    const firstDisposal = !lifecycle.disposed;
+    const disposal = lifecycle.beginDispose(async () => {
+      const failures = await runLifecycleCleanup(
+        [
+          () => pacer?.cancel(),
+          ...cleanupTasks.splice(0),
+          () => syncCoordinator?.dispose(),
+        ],
+        () => flushQueue(true),
+        reportError,
+      );
+      if (failures.length > 0)
+        throw new AggregateError(failures, "Store disposal failed.");
+    });
+    if (firstDisposal) {
+      if (!isReady) {
+        readyReject(createAbortError());
+        hydrationStatus.overall = "cancelled";
+        for (const key of Object.keys(hydrationStatus.byKey)) {
+          if (hydrationStatus.byKey[key] === "pending")
+            defineRecordValue(hydrationStatus.byKey, key, "cancelled");
+        }
+      }
+      pendingAdapterEvents.length = 0;
+      deferredAdapterEvents.clear();
+      deferredSyncEvents.length = 0;
+      synchronizationStatus = "disposed";
+      try {
+        emitSynchronizationEvent("synchronization_disposed");
+      } catch (error) {
+        reportError(error);
+      }
+    }
+    return disposal;
   };
 
   return store;

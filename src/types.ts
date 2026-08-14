@@ -83,7 +83,8 @@ export type HydrationState =
   | "pending"
   | "hydrated"
   | "discarded"
-  | "error";
+  | "error"
+  | "cancelled";
 
 export interface HydrationStatus {
   overall: HydrationState;
