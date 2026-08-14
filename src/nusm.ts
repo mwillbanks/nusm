@@ -861,6 +861,25 @@ export function createNusmStore<TState>(
     }
   };
 
+  const replayDeferredSynchronization = async (generation: number) => {
+    hydratedForSync = true;
+    replayingDeferredSyncEvents = true;
+    try {
+      while (true) {
+        while (deferredSyncEvents.length > 0) {
+          const event = deferredSyncEvents.shift();
+          if (event) await applySyncStateEvent(event, true);
+          assertHydrationCurrent(generation);
+        }
+        await syncCoordinator?.waitForIdle();
+        assertHydrationCurrent(generation);
+        if (deferredSyncEvents.length === 0) return;
+      }
+    } finally {
+      replayingDeferredSyncEvents = false;
+    }
+  };
+
   const completeHydration = async (
     emitHydration: boolean,
     generation: number,
@@ -873,17 +892,7 @@ export function createNusmStore<TState>(
     if (syncCoordinator && !syncOptimistic)
       await syncCoordinator.waitForConvergence();
     assertHydrationCurrent(generation);
-    hydratedForSync = true;
-    replayingDeferredSyncEvents = true;
-    try {
-      while (deferredSyncEvents.length > 0) {
-        const event = deferredSyncEvents.shift();
-        if (event) await applySyncStateEvent(event, true);
-        assertHydrationCurrent(generation);
-      }
-    } finally {
-      replayingDeferredSyncEvents = false;
-    }
+    await replayDeferredSynchronization(generation);
     assertHydrationCurrent(generation);
     isReady = true;
     readyResolve();

@@ -80,6 +80,22 @@ describe("synchronization communication", () => {
     const transitions: number[] = [];
     const unsubscribe = store.subscribe(() => {
       transitions.push(store.state.value);
+      if (store.state.value === 42)
+        source.emit({
+          eventId: "during-replay-newer",
+          kind: "update",
+          sourceId: "peer",
+          state: { value: 43 },
+          storeId: "deferred-update",
+        });
+      if (store.state.value === 43)
+        source.emit({
+          eventId: "during-replay-newest",
+          kind: "update",
+          sourceId: "peer",
+          state: { value: 44 },
+          storeId: "deferred-update",
+        });
     });
     await hydrationStarted;
     source.emit({
@@ -92,17 +108,10 @@ describe("synchronization communication", () => {
     await Promise.resolve();
 
     resolveHydration(null);
-    source.emit({
-      eventId: "during-hydration-newer",
-      kind: "update",
-      sourceId: "peer",
-      state: { value: 43 },
-      storeId: "deferred-update",
-    });
     await store.ready;
 
-    expect(transitions.slice(-2)).toEqual([42, 43]);
-    expect(store.state).toEqual({ value: 43 });
+    expect(transitions.slice(-3)).toEqual([42, 43, 44]);
+    expect(store.state).toEqual({ value: 44 });
     if (typeof unsubscribe === "function") unsubscribe();
     else unsubscribe.unsubscribe();
     await store.dispose();

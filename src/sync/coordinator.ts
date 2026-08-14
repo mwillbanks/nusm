@@ -57,6 +57,7 @@ export interface NusmSyncCoordinator<TState = unknown> {
   enqueueAdapterEvent(event: AdapterEvent, generation?: number): Promise<void>;
   announceHydrating(state: TState): Promise<void>;
   announceReady(state: TState): Promise<void>;
+  waitForIdle(): Promise<void>;
   waitForConvergence(): Promise<void>;
   isConverged(): boolean;
   nextRevision(): { counter: number; senderId: string; epoch: string };
@@ -1045,6 +1046,13 @@ export const createNusmSyncCoordinator = <TState>(
     clearCoordinatorState();
     await disposeResources();
   };
+  const waitForIdle = async () => {
+    while (true) {
+      const pending = queue;
+      await pending;
+      if (pending === queue) return;
+    }
+  };
 
   return {
     announceHydrating,
@@ -1069,5 +1077,6 @@ export const createNusmSyncCoordinator = <TState>(
       return status;
     },
     waitForConvergence,
+    waitForIdle,
   };
 };
