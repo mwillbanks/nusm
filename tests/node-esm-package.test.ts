@@ -25,6 +25,6 @@ test("published entry points load in plain Node ESM", () => {
     "node",
     "--input-type=module",
     "--eval",
-    "const [{ configureNusm, createNusmStore }] = await Promise.all([import('nusm'), import('nusm/react'), import('nusm/devtools')]); configureNusm({ crossTab: true }); const store = createNusmStore({ value: 1 }, { storeId: 'node-safe' }); await store.ready; if (store.state.value !== 1) process.exit(1); await store.dispose()",
+    "const [{ createNusmStore }] = await Promise.all([import('nusm'), import('nusm/react'), import('nusm/devtools')]); const store = createNusmStore({ value: 1 }, { storeId: 'node-safe' }); await store.ready; if (store.state.value !== 1) process.exit(1); await store.dispose()",
   ]);
 });

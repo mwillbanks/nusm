@@ -60,7 +60,6 @@ describe("panel state", () => {
       { x: 1, y: 1 },
       {
         adapter,
-        crossTab: true,
         devtools: true,
         persist: { strategy: "entire" },
         storeId: "entire-health",
@@ -155,7 +154,6 @@ describe("panel state", () => {
       { a: 1, b: 2 },
       {
         adapter,
-        crossTab: true,
         devtools: true,
         persist: { slices: [slice("a"), slice("b")], strategy: "slices" },
         storeId: "slice-health",

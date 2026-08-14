@@ -698,8 +698,10 @@ export function NusmDevtoolsPanel({ theme }: TanStackDevtoolsPluginProps) {
                   <strong>{selected.hydration.overall}</strong>
                 </div>
                 <div className="nusm-stat">
-                  <span>BroadcastChannel</span>
-                  <strong>{selected.crossTab ?? "disabled"}</strong>
+                  <span>Synchronization</span>
+                  <strong>
+                    {selected.synchronizationStatus ?? "disabled"}
+                  </strong>
                 </div>
                 <div className="nusm-stat">
                   <span>Last write</span>
@@ -748,10 +750,11 @@ export function NusmDevtoolsPanel({ theme }: TanStackDevtoolsPluginProps) {
                         </p>
                         <pre className="nusm-code">
                           {toJson({
-                            crossTab: selected.crossTab ?? "disabled",
                             pendingKeys: selected.pendingKeys ?? [],
                             persistenceStrategy:
                               selected.persistenceStrategy ?? "none",
+                            synchronizationStatus:
+                              selected.synchronizationStatus ?? "disabled",
                           })}
                         </pre>
                       </div>

@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { createNusmStore, type PersistSlice } from "../src/index";
+import {
+  createNusmStore,
+  type NusmAdapter,
+  type PersistSlice,
+} from "../src/index";
 import { createMemoryAdapter } from "./helpers/memory-adapter";
 
 const resolveKey = (params: {
@@ -691,23 +695,19 @@ describe("nusm guards", () => {
     ).toThrow();
   });
 
-  test("derives storeId from devtools name", async () => {
+  test("does not derive persistence identity from a Devtools name", () => {
     const { adapter, setItemCalls } = createMemoryAdapter();
-    const nusm = createNusmStore(
-      { value: 1 },
-      {
-        adapter,
-        devtools: { name: "My Store" },
-        persist: { strategy: "entire" },
-      },
-    );
-
-    await nusm.ready;
-    nusm.setState({ value: 2 });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    const expectedKey = resolveKey({ kind: "entire", storeId: "my-store" });
-    expect(setItemCalls.some((call) => call.key === expectedKey)).toBe(true);
+    expect(() =>
+      createNusmStore(
+        { value: 1 },
+        {
+          adapter,
+          devtools: { name: "My Store" },
+          persist: { strategy: "entire" },
+        },
+      ),
+    ).toThrow("explicit storeId");
+    expect(setItemCalls).toHaveLength(0);
   });
 
   test("discardPersisted via function for slices", async () => {
@@ -768,7 +768,7 @@ describe("nusm guards", () => {
     expect(nusm.state).toEqual({ value: 1 });
   });
 
-  test("ignores external event after recent write", async () => {
+  test("applies an adapter event when its value differs from the completed write", async () => {
     const { adapter, store, emit } = createMemoryAdapter({ pacer: false });
     const storeId = "recent-write";
     const key = resolveKey({ kind: "entire", storeId });
@@ -790,7 +790,181 @@ describe("nusm guards", () => {
     emit({ key, type: "set" });
 
     await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(nusm.state).toEqual({ value: 2 });
+    expect(nusm.state).toEqual({ value: 1 });
+  });
+
+  test("defers an adapter invalidation raised during an active write", async () => {
+    let persisted: unknown = { value: 0 };
+    let writeStarted: (() => void) | undefined;
+    let finishWrite: (() => void) | undefined;
+    const listeners = new Set<
+      Parameters<NonNullable<NusmAdapter["subscribe"]>>[0]
+    >();
+    const adapter: NusmAdapter = {
+      getItem: async () => persisted,
+      name: "racy-memory",
+      pacer: false,
+      removeItem: () => undefined,
+      setItem: () => {
+        writeStarted?.();
+        return new Promise<void>((resolve) => {
+          finishWrite = resolve;
+        });
+      },
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+    const store = createNusmStore(
+      { value: 0 },
+      { adapter, persist: { strategy: "entire" }, storeId: "racy" },
+    );
+    await store.ready;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const started = new Promise<void>((resolve) => {
+      writeStarted = resolve;
+    });
+    store.setState({ value: 1 });
+    await started;
+    persisted = { value: 2 };
+    for (const listener of listeners)
+      listener({ key: "nusm:racy:entire", type: "set" });
+    finishWrite?.();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(store.state).toEqual({ value: 2 });
+    await store.dispose();
+  });
+
+  test("defers an adapter clear until every active write completes", async () => {
+    const persisted: unknown = { value: 0 };
+    let writeStarted: (() => void) | undefined;
+    let finishWrite: (() => void) | undefined;
+    const listeners = new Set<
+      Parameters<NonNullable<NusmAdapter["subscribe"]>>[0]
+    >();
+    const adapter: NusmAdapter = {
+      getItem: async () => persisted,
+      name: "clear-racy-memory",
+      pacer: false,
+      removeItem: () => undefined,
+      setItem: () => {
+        writeStarted?.();
+        return new Promise<void>((resolve) => {
+          finishWrite = resolve;
+        });
+      },
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+    const store = createNusmStore(
+      { value: 0 },
+      { adapter, persist: { strategy: "entire" }, storeId: "clear-racy" },
+    );
+    await store.ready;
+    const started = new Promise<void>((resolve) => {
+      writeStarted = resolve;
+    });
+
+    store.setState({ value: 1 });
+    await started;
+    for (const listener of listeners) listener({ type: "clear" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(store.state).toEqual({ value: 1 });
+
+    finishWrite?.();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(store.state).toEqual({ value: 0 });
+    await store.dispose();
+  });
+
+  test("correlates cloned adapter echoes without hiding differing values", async () => {
+    const { adapter, store, emit } = createMemoryAdapter({ pacer: false });
+    const storeId = "cloned-echo";
+    const key = resolveKey({ kind: "entire", storeId });
+    const nusm = createNusmStore(
+      { nested: { enabled: false }, value: 0 },
+      {
+        adapter,
+        persist: { strategy: "entire" },
+        storeId,
+      },
+    );
+    await nusm.ready;
+    let transitions = 0;
+    const unsubscribe = nusm.subscribe(() => {
+      transitions += 1;
+    });
+
+    nusm.setState({ nested: { enabled: true }, value: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const written = store.get(key);
+    store.set(key, structuredClone(written));
+    emit({ key, type: "set" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(nusm.state).toEqual({ nested: { enabled: true }, value: 1 });
+    expect(transitions).toBe(1);
+
+    store.set(key, { nested: { enabled: true }, value: 2 });
+    emit({ key, type: "set" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(nusm.state).toEqual({ nested: { enabled: true }, value: 2 });
+    expect(transitions).toBe(2);
+    if (typeof unsubscribe === "function") unsubscribe();
+    else unsubscribe.unsubscribe();
+    await nusm.dispose();
+  });
+
+  test("drops an adapter read that finishes after a newer local generation", async () => {
+    let readCount = 0;
+    let resolveDelayedRead: ((value: unknown) => void) | undefined;
+    const listeners = new Set<
+      Parameters<NonNullable<NusmAdapter["subscribe"]>>[0]
+    >();
+    const adapter: NusmAdapter = {
+      getItem: () => {
+        readCount += 1;
+        if (readCount === 1) return { value: 0 };
+        return new Promise((resolve) => {
+          resolveDelayedRead = resolve;
+        });
+      },
+      name: "generation-memory",
+      pacer: false,
+      removeItem: () => undefined,
+      setItem: () => undefined,
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+    const store = createNusmStore(
+      { value: 0 },
+      {
+        adapter,
+        persist: { strategy: "entire" },
+        storeId: "generation",
+      },
+    );
+    await store.ready;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    let transitions = 0;
+    const unsubscribe = store.subscribe(() => {
+      transitions += 1;
+    });
+    for (const listener of listeners)
+      listener({ key: "nusm:generation:entire", type: "set" });
+    await Promise.resolve();
+    store.setState({ value: 2 });
+    resolveDelayedRead?.({ value: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(store.state).toEqual({ value: 2 });
+    expect(transitions).toBe(1);
+    if (typeof unsubscribe === "function") unsubscribe();
+    else unsubscribe.unsubscribe();
+    await store.dispose();
   });
 
   test("default resolveKey when adapter does not supply one", async () => {

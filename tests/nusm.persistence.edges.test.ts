@@ -70,7 +70,6 @@ describe("nusm persistence edges", () => {
       { count: 1 },
       {
         adapter,
-        crossTab: true,
         devtools: true,
         persist: { strategy: "entire" },
         storeId: "slow-entire",
@@ -122,6 +121,50 @@ describe("nusm persistence edges", () => {
     await tick();
     expect(sliced.state).toEqual({ piece: 1 });
     expect(values.has("nusm:slow-slice:slice:piece")).toBe(false);
+    globalThis.__TANSTACK_EVENT_TARGET__ = originalTarget;
+  });
+
+  test("superseded persisted edits discard queued state writes", async () => {
+    const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
+    const target = relay();
+    globalThis.__TANSTACK_EVENT_TARGET__ = target;
+    const key = "nusm:queued:entire";
+    const values = new Map<string, unknown>([[key, { count: 0 }]]);
+    const writes: unknown[] = [];
+    const adapter: NusmAdapter = {
+      getItem: (storageKey) => values.get(storageKey) ?? null,
+      name: "queued-persistence",
+      pacer: { wait: 40 },
+      removeItem: (storageKey) => values.delete(storageKey),
+      setItem: (storageKey, value) => {
+        writes.push(value);
+        values.set(storageKey, value);
+      },
+    };
+    const store = createNusmStore(
+      { count: 0 },
+      {
+        adapter,
+        devtools: true,
+        persist: { strategy: "entire" },
+        storeId: "queued",
+      },
+    );
+    await store.ready;
+
+    store.setState({ count: 1 });
+    command(target, {
+      action: "replace_persisted",
+      commandId: "supersede-queued",
+      instanceId: store.devtoolsInstanceId,
+      storeId: "queued",
+      value: { count: 9 },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    expect(values.get(key)).toEqual({ count: 9 });
+    expect(writes).toEqual([{ count: 9 }]);
+    await store.dispose();
     globalThis.__TANSTACK_EVENT_TARGET__ = originalTarget;
   });
 

@@ -94,7 +94,7 @@ describe("instance identity and scoped adapter events", () => {
     globalThis.__TANSTACK_EVENT_TARGET__ = originalTarget;
   });
 
-  test("normalizes unusable and colliding names into commandable unique instances", async () => {
+  test("keeps Devtools display names separate from store identity", async () => {
     const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
     const target = relay();
     globalThis.__TANSTACK_EVENT_TARGET__ = target;
@@ -108,11 +108,11 @@ describe("instance identity and scoped adapter events", () => {
     );
     const left = createNusmStore(
       { value: "left" },
-      { devtools: { name: "A!" } },
+      { devtools: { name: "A!" }, storeId: "left" },
     );
     const right = createNusmStore(
       { value: "right" },
-      { devtools: { name: "A?" } },
+      { devtools: { name: "A?" }, storeId: "right" },
     );
     await Promise.all([emoji.ready, left.ready, right.ready]);
     await tick();
@@ -124,21 +124,17 @@ describe("instance identity and scoped adapter events", () => {
     expect(emojiSnapshot?.storeId).not.toBe("");
     expect(left.devtoolsInstanceId).not.toBe(right.devtoolsInstanceId);
     expect(
-      snapshots
-        .filter(({ storeId }) => storeId === "a")
-        .map(({ instanceId }) => instanceId),
-    ).toEqual(
-      expect.arrayContaining([
-        left.devtoolsInstanceId,
-        right.devtoolsInstanceId,
-      ]),
-    );
+      snapshots.find(({ storeId }) => storeId === "left")?.instanceId,
+    ).toBe(left.devtoolsInstanceId);
+    expect(
+      snapshots.find(({ storeId }) => storeId === "right")?.instanceId,
+    ).toBe(right.devtoolsInstanceId);
 
     await dispatchCommand(target, {
       action: "replace_memory",
       commandId: "normalized-collision-target",
       instanceId: right.devtoolsInstanceId,
-      storeId: "a",
+      storeId: "right",
       value: { value: "targeted" },
     });
     await tick();
@@ -172,7 +168,6 @@ describe("instance identity and scoped adapter events", () => {
       { ephemeral: "initial", persisted: 1 },
       {
         adapter,
-        crossTab: true,
         persist: {
           slices: [
             {

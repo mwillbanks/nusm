@@ -1,54 +1,41 @@
 import "fake-indexeddb/auto";
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import {
   createIndexDbAdapter,
   createLocalStorageAdapter,
   createNusmStore,
   createSessionStorageAdapter,
   type NusmAdapter,
+  type NusmSyncSource,
 } from "nusm";
 
-class ExampleBroadcastChannel {
-  static channels = new Map<string, Set<ExampleBroadcastChannel>>();
-  onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
-
-  constructor(readonly name: string) {
-    const channels = ExampleBroadcastChannel.channels.get(name) ?? new Set();
-    channels.add(this);
-    ExampleBroadcastChannel.channels.set(name, channels);
-  }
-
-  close() {
-    ExampleBroadcastChannel.channels.get(this.name)?.delete(this);
-  }
-
-  postMessage(message: unknown) {
-    const value = structuredClone(message);
-    for (const channel of ExampleBroadcastChannel.channels.get(this.name) ?? [])
-      queueMicrotask(() =>
-        channel.onmessage?.({ data: value } as MessageEvent),
-      );
-  }
-}
-
-const browserTarget = window as unknown as { BroadcastChannel?: unknown };
-const originalBroadcastChannel = browserTarget.BroadcastChannel;
-browserTarget.BroadcastChannel = ExampleBroadcastChannel;
-
-afterEach(() => ExampleBroadcastChannel.channels.clear());
+const createExampleSyncSource = (): NusmSyncSource => {
+  const listeners = new Set<Parameters<NusmSyncSource["start"]>[0]>();
+  return {
+    publish: (event) => {
+      const value = structuredClone(event);
+      for (const listener of listeners) queueMicrotask(() => listener(value));
+    },
+    start: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+};
 
 const verifyAdapter = async (
   name: string,
   createAdapter?: () => NusmAdapter,
 ) => {
   const storeId = `example-${name}`;
+  const sync = createExampleSyncSource();
   const first = createNusmStore(
     { value: 0 },
-    { adapter: createAdapter?.(), crossTab: true, storeId },
+    { adapter: createAdapter?.(), storeId, sync: { source: sync } },
   );
   const second = createNusmStore(
     { value: 0 },
-    { adapter: createAdapter?.(), crossTab: true, storeId },
+    { adapter: createAdapter?.(), storeId, sync: { source: sync } },
   );
   await Promise.all([first.ready, second.ready]);
   await new Promise((resolve) => setTimeout(resolve, 10));
@@ -69,8 +56,4 @@ describe("example cross-tab behavior", () => {
       createIndexDbAdapter({ dbName: "nusm-cross-tab-example" }),
     );
   });
-});
-
-afterEach(() => {
-  browserTarget.BroadcastChannel = originalBroadcastChannel;
 });

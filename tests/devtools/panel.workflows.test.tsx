@@ -55,7 +55,6 @@ describe("devtools panel workflows", () => {
     expect(view.getByText("No instrumented stores yet")).toBeInTheDocument();
     await dispatch(target, "snapshot", {
       adapterName: "indexdb",
-      crossTab: "active",
       eventLogCap: 2,
       hydration: { byKey: { entire: "hydrated" }, overall: "hydrated" },
       instanceId: "workspace-instance",
@@ -63,10 +62,11 @@ describe("devtools panel workflows", () => {
       memory: { profile: { name: "Ada" }, tags: ["devtools"] },
       persisted: { profile: { name: "Ada" }, tags: ["devtools"] },
       storeId: "workspace",
+      synchronizationStatus: "active",
     });
 
     fireEvent.click(view.getByRole("button", { name: /workspace/i }));
-    expect(view.getByText("BroadcastChannel")).toBeInTheDocument();
+    expect(view.getByText("Synchronization")).toBeInTheDocument();
     expect(view.getAllByText("active").length).toBeGreaterThan(0);
     fireEvent.click(view.getByRole("tab", { name: "memory" }));
     act(() => {

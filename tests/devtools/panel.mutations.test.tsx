@@ -124,7 +124,6 @@ describe("panel mutations", () => {
       { count: 1 },
       {
         adapter,
-        crossTab: true,
         devtools: true,
         persist: { strategy: "entire" },
         storeId: "echo",

@@ -4,22 +4,19 @@ import { batch, Store } from "@tanstack/store";
 import { deepEqual } from "fast-equals";
 
 import { getNusmGlobalOptions } from "./config.js";
-import {
-  type CrossTabRevision,
-  type CrossTabTransport,
-  compareCrossTabRevisions,
-  createCrossTabTransport,
-  getBrowserBroadcastChannel,
-} from "./crossTab.js";
 import { createNusmDevtoolsEmitter } from "./devtools/client.js";
 import { removeValueAtPath, setValueAtPath } from "./devtools/path.js";
-
 import { isRoundTrippableForDevtools } from "./devtools/serialize.js";
-
 import type {
   NusmDevtoolsCommand,
   NusmDevtoolsPath,
 } from "./devtools/types.js";
+import { createNusmSyncCoordinator } from "./sync/coordinator.js";
+import type {
+  NusmSyncEvent,
+  NusmSyncRevision,
+  NusmSyncStatus,
+} from "./sync/types.js";
 import type {
   AdapterEvent,
   CreateNusmStoreOptions,
@@ -59,7 +56,6 @@ const defineRecordValue = <T>(
 };
 
 const devtoolsStoreSequenceKey = Symbol.for("nusm.devtools.store-sequence");
-const crossTabClientIdKey = Symbol.for("nusm.cross-tab.client-id");
 const nextDevtoolsInstanceId = () => {
   const registry = globalThis as unknown as Record<symbol, unknown>;
   const current = registry[devtoolsStoreSequenceKey];
@@ -69,32 +65,10 @@ const nextDevtoolsInstanceId = () => {
   return `nusm-instance-${sequence}`;
 };
 
-const getCrossTabClientId = () => {
-  const registry = globalThis as unknown as Record<symbol, unknown>;
-  const existing = registry[crossTabClientIdKey];
-  if (typeof existing === "string") return existing;
-  const clientId =
-    globalThis.crypto?.randomUUID?.() ??
-    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  registry[crossTabClientIdKey] = clientId;
-  return clientId;
-};
-
 const resolveStoreId = <TState>(
   options?: CreateNusmStoreOptions<TState>,
 ): string | undefined => {
-  if (options?.storeId) return options.storeId;
-  const devtoolsName =
-    typeof options?.devtools === "object" ? options.devtools.name : undefined;
-  if (devtoolsName) {
-    const normalized = devtoolsName
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "-")
-      .replace(/[^a-z0-9-_]/g, "");
-    return normalized || undefined;
-  }
-  return undefined;
+  return options?.storeId;
 };
 
 const shouldDiscardPersisted = <TState>(
@@ -143,26 +117,17 @@ export function createNusmStore<TState>(
   const onError = options?.onError;
   const storeId = resolveStoreId(options);
   const devtoolsInstanceId = nextDevtoolsInstanceId();
-  const crossTabSenderId = `${getCrossTabClientId()}:${devtoolsInstanceId}`;
   const storeIdValue = storeId ?? devtoolsInstanceId;
-  const configuredCrossTab =
-    options?.crossTab ?? getNusmGlobalOptions().crossTab;
-  const browserRuntime = typeof window !== "undefined";
-  if (browserRuntime && options?.crossTab === true && !storeId) {
+  const globalSync = getNusmGlobalOptions().sync;
+  const storeSync = options?.sync;
+  const syncOptions =
+    storeSync === false ? undefined : (storeSync ?? globalSync);
+  const syncSources = syncOptions?.sources ?? syncOptions?.source;
+  if ((adapter || syncSources) && !storeId) {
     throw new Error(
-      "nusm requires a stable storeId or Devtools name when cross-tab communication is explicitly enabled.",
+      "nusm requires an explicit storeId when persistence or synchronization is enabled.",
     );
   }
-  const BroadcastChannelConstructor = getBrowserBroadcastChannel();
-  let crossTabStatus: import("./types.js").CrossTabStatus = !configuredCrossTab
-    ? "disabled"
-    : !browserRuntime
-      ? "disabled"
-      : !storeId
-        ? "skipped_missing_identity"
-        : !BroadcastChannelConstructor
-          ? "unavailable"
-          : "active";
   const configuredEventLogCap =
       typeof options?.devtools === "object"
         ? options.devtools.eventLogCap
@@ -178,22 +143,26 @@ export function createNusmStore<TState>(
     );
   let lastFlushAt: number | undefined;
   let disposed = false;
-  let suppressCrossTab = false;
-  let crossTabTransport: CrossTabTransport | undefined;
-  let crossTabRevision: CrossTabRevision = {
+  let synchronizationStatus: NusmSyncStatus = syncSources
+    ? "pending"
+    : "disabled";
+  let syncRevision: NusmSyncRevision = {
     counter: 0,
-    senderId: crossTabSenderId,
+    senderId: devtoolsInstanceId,
   };
-  let crossTabHasProgress = false;
   const cleanupTasks: Array<() => void> = [];
+  let syncCoordinator:
+    | ReturnType<typeof createNusmSyncCoordinator<TState>>
+    | undefined;
+  let syncEventSequence = 0;
 
-  const emitCrossTabEvent = (
+  const emitSynchronizationEvent = (
     type:
-      | "cross_tab_connected"
-      | "cross_tab_remote_applied"
-      | "cross_tab_unavailable"
-      | "cross_tab_protocol_error"
-      | "cross_tab_disposed",
+      | "synchronization_connected"
+      | "synchronization_remote_applied"
+      | "synchronization_unavailable"
+      | "synchronization_protocol_error"
+      | "synchronization_disposed",
     detail?: unknown,
   ) => {
     devtoolsEmitter?.emitEvent({
@@ -203,16 +172,6 @@ export function createNusmStore<TState>(
       type,
     });
   };
-  if (crossTabStatus === "unavailable") {
-    emitCrossTabEvent("cross_tab_unavailable", "BroadcastChannel unavailable");
-  }
-
-  if (adapter && !storeId) {
-    throw new Error(
-      "nusm requires a stable storeId or devtools name when persistence is enabled.",
-    );
-  }
-
   const store = new Store<TState>(
     adapter ? (undefined as unknown as TState) : initialState,
   ) as NusmStore<TState>;
@@ -226,6 +185,7 @@ export function createNusmStore<TState>(
 
   let isReady = false;
   let suppressPersist = false;
+  let suppressSynchronization = false;
 
   const hydrationStatus: HydrationStatus = {
     byKey: createDataRecord(),
@@ -316,14 +276,12 @@ export function createNusmStore<TState>(
     }
   }
 
-  const recentWrites = new Map<
+  const persistenceKeyGenerations = new Map<string, number>();
+  const deferredAdapterEvents = new Map<
     string,
-    { active: number; completedAt?: number }
+    Array<{ event: AdapterEvent; generation?: number }>
   >();
-  let persistenceGeneration = 0;
-  const recentWriteWindowMs = adapter?.name.toLowerCase().includes("index")
-    ? 1000
-    : 500;
+  let replayDeferredAdapterEvents: (() => void) | undefined;
 
   const queuedPayloads = new Map<
     string,
@@ -338,20 +296,19 @@ export function createNusmStore<TState>(
   const recordAdapterWrite = async (
     key: string,
     operation: () => void | Promise<void>,
+    value?: unknown,
   ) => {
-    const writeState = recentWrites.get(key) ?? { active: 0 };
-    writeState.active += 1;
-    recentWrites.set(key, writeState);
+    const releasePendingWrite = syncCoordinator?.recordPendingWrite(
+      key,
+      value,
+      persistenceKeyGenerations.get(key) ?? 0,
+    );
     try {
       await Promise.resolve(operation());
-      writeState.completedAt = Date.now();
-      lastFlushAt = writeState.completedAt;
-    } catch (error) {
-      if (writeState.active === 1 && writeState.completedAt === undefined)
-        recentWrites.delete(key);
-      throw error;
+      lastFlushAt = Date.now();
     } finally {
-      writeState.active -= 1;
+      releasePendingWrite?.();
+      replayDeferredAdapterEvents?.();
     }
   };
   const persistHydrationBaseline = async (entry: {
@@ -373,8 +330,10 @@ export function createNusmStore<TState>(
       type: "persist_flush_start",
     });
     try {
-      await recordAdapterWrite(entry.key, () =>
-        adapter.setItem(entry.key, entry.payload),
+      await recordAdapterWrite(
+        entry.key,
+        () => adapter.setItem(entry.key, entry.payload),
+        entry.payload,
       );
       devtoolsEmitter?.emitEvent({
         key: entry.key,
@@ -412,10 +371,13 @@ export function createNusmStore<TState>(
 
     await Promise.all(
       entries.map(async (entry) => {
-        if (entry.generation !== persistenceGeneration) return;
+        if (entry.generation !== persistenceKeyGenerations.get(entry.key))
+          return;
         try {
-          await recordAdapterWrite(entry.key, () =>
-            adapter.setItem(entry.key, entry.payload),
+          await recordAdapterWrite(
+            entry.key,
+            () => adapter.setItem(entry.key, entry.payload),
+            entry.payload,
           );
 
           devtoolsEmitter?.emitEvent({
@@ -482,8 +444,10 @@ export function createNusmStore<TState>(
     sliceKey?: string;
     kind: "entire" | "slice";
   }) => {
+    const generation = (persistenceKeyGenerations.get(entry.key) ?? 0) + 1;
+    persistenceKeyGenerations.set(entry.key, generation);
     queuedPayloads.set(entry.key, entry);
-    queuedGenerations.set(entry.key, persistenceGeneration);
+    queuedGenerations.set(entry.key, generation);
     devtoolsEmitter?.emitEvent({
       key: entry.key,
       sliceKey: entry.sliceKey,
@@ -496,14 +460,63 @@ export function createNusmStore<TState>(
 
   let previousState = store.state;
   let supersededPersistenceState: { value: TState } | undefined;
-  const broadcastLocalState = (currentVal: TState) => {
-    if (!crossTabTransport || suppressCrossTab || disposed) return;
-    crossTabRevision = {
-      counter: crossTabRevision.counter + 1,
-      senderId: crossTabSenderId,
+  const broadcastLocalState = (currentVal: TState, changedKeys?: string[]) => {
+    if (!syncCoordinator || suppressSynchronization || disposed || !storeId)
+      return;
+    syncRevision = {
+      counter: syncRevision.counter + 1,
+      senderId: devtoolsInstanceId,
     };
-    crossTabHasProgress = true;
-    crossTabTransport.postState(currentVal, crossTabRevision);
+    const event: NusmSyncEvent<TState> = {
+      changedKeys,
+      eventId: `local:${storeId}:${++syncEventSequence}`,
+      kind: "update",
+      revision: syncRevision,
+      sourceId: "local",
+      state: currentVal,
+      storeId,
+    };
+    void syncCoordinator.publish(event);
+  };
+  const resolveChangedPersistenceKeys = (
+    previous: TState,
+    current: TState,
+  ): string[] | undefined => {
+    if (strategy === "entire")
+      return resolvedEntireKey ? [resolvedEntireKey] : undefined;
+    return slices
+      .filter(
+        (slice) => !Object.is(slice.select(previous), slice.select(current)),
+      )
+      .map((slice) => resolvedSliceKeys.get(slice.key) ?? slice.key);
+  };
+  const scheduleStatePersistence = (previous: TState, current: TState) => {
+    if (!adapter) return;
+    if (
+      supersededPersistenceState &&
+      Object.is(current, supersededPersistenceState.value)
+    ) {
+      supersededPersistenceState = undefined;
+      return;
+    }
+    supersededPersistenceState = undefined;
+    if (strategy === "entire") {
+      const key = resolveKey({ kind: "entire" });
+      enqueuePersist({ key, kind: "entire", payload: current });
+      return;
+    }
+    for (const slice of slices) {
+      const previousSlice = slice.select(previous);
+      const nextSlice = slice.select(current);
+      if (Object.is(previousSlice, nextSlice)) continue;
+      const key = resolveKey({ kind: "slice", sliceKey: slice.key });
+      enqueuePersist({
+        key,
+        kind: "slice",
+        payload: nextSlice,
+        sliceKey: slice.key,
+      });
+    }
   };
   const subscribeToStore = () => {
     const subscription = store.subscribe((currentVal) => {
@@ -511,34 +524,9 @@ export function createNusmStore<TState>(
       previousState = currentVal;
       if (suppressPersist) return;
       void emitDevtoolsSnapshot();
-      broadcastLocalState(currentVal);
-      if (!adapter) return;
-      if (
-        supersededPersistenceState &&
-        Object.is(currentVal, supersededPersistenceState.value)
-      ) {
-        supersededPersistenceState = undefined;
-        return;
-      }
-      supersededPersistenceState = undefined;
-      if (strategy === "entire") {
-        const key = resolveKey({ kind: "entire" });
-        enqueuePersist({ key, kind: "entire", payload: currentVal });
-        return;
-      }
-
-      for (const slice of slices) {
-        const prevSlice = slice.select(prevVal);
-        const nextSlice = slice.select(currentVal);
-        if (Object.is(prevSlice, nextSlice)) continue;
-        const key = resolveKey({ kind: "slice", sliceKey: slice.key });
-        enqueuePersist({
-          key,
-          kind: "slice",
-          payload: nextSlice,
-          sliceKey: slice.key,
-        });
-      }
+      const changedKeys = resolveChangedPersistenceKeys(prevVal, currentVal);
+      broadcastLocalState(currentVal, changedKeys);
+      scheduleStatePersistence(prevVal, currentVal);
     });
     cleanupTasks.push(
       typeof subscription === "function"
@@ -553,68 +541,15 @@ export function createNusmStore<TState>(
     suppressPersist = false;
   };
 
-  const applyRemoteState = (nextState: unknown, revision: CrossTabRevision) => {
+  const applyRemoteState = (nextState: unknown, sourceId: string) => {
     if (disposed) return;
-    suppressCrossTab = true;
+    suppressSynchronization = true;
     try {
       store.setState(() => nextState as TState);
     } finally {
-      suppressCrossTab = false;
+      suppressSynchronization = false;
     }
-    crossTabRevision = revision;
-    emitCrossTabEvent("cross_tab_remote_applied", revision);
-  };
-
-  const activateCrossTab = () => {
-    if (
-      crossTabStatus !== "active" ||
-      !BroadcastChannelConstructor ||
-      !storeId ||
-      disposed
-    )
-      return;
-    try {
-      crossTabTransport = createCrossTabTransport({
-        BroadcastChannel: BroadcastChannelConstructor,
-        instanceId: crossTabSenderId,
-        onError: (error) => {
-          emitCrossTabEvent("cross_tab_protocol_error", error.message);
-          onError?.(error);
-        },
-        onRequest: (requesterId) => {
-          crossTabTransport?.postSnapshot(
-            store.state,
-            crossTabRevision,
-            requesterId,
-          );
-        },
-        onState: (state, revision, kind) => {
-          const revisionComparison = compareCrossTabRevisions(
-            revision,
-            crossTabRevision,
-          );
-          if (kind === "update" && revisionComparison <= 0) return;
-          if (
-            kind === "snapshot" &&
-            crossTabHasProgress &&
-            revisionComparison <= 0
-          )
-            return;
-          crossTabHasProgress = true;
-          applyRemoteState(state, revision);
-        },
-        storeId,
-      });
-    } catch (error) {
-      crossTabStatus = "unavailable";
-      emitCrossTabEvent(
-        "cross_tab_unavailable",
-        error instanceof Error ? error.message : String(error),
-      );
-      return;
-    }
-    emitCrossTabEvent("cross_tab_connected");
-    crossTabTransport.postRequest(crossTabRevision);
+    emitSynchronizationEvent("synchronization_remote_applied", sourceId);
   };
 
   // fallow-ignore-next-line complexity
@@ -808,7 +743,7 @@ export function createNusmStore<TState>(
     if (!adapter) {
       isReady = true;
       readyResolve();
-      activateCrossTab();
+      void syncCoordinator?.start();
       emitDevtoolsSnapshot();
       return;
     }
@@ -831,7 +766,7 @@ export function createNusmStore<TState>(
       });
       isReady = true;
       readyResolve();
-      activateCrossTab();
+      void syncCoordinator?.start();
       devtoolsEmitter?.emitHydration(storeIdValue, getHydrationSnapshot());
       emitDevtoolsSnapshot();
     } catch (error) {
@@ -848,19 +783,23 @@ export function createNusmStore<TState>(
   };
 
   // fallow-ignore-next-line complexity
-  const handleAdapterEvent = async (event: AdapterEvent) => {
+  const handleAdapterEvent = async (
+    event: AdapterEvent,
+    generation?: number,
+  ) => {
     if (!adapter) return;
 
-    if (event.type !== "clear" && event.key) {
-      const writeState = recentWrites.get(event.key);
-      if (
-        writeState &&
-        (writeState.active > 0 ||
-          (writeState.completedAt !== undefined &&
-            Date.now() - writeState.completedAt < recentWriteWindowMs))
-      ) {
-        return;
-      }
+    if (event.key && syncCoordinator?.isPendingWrite(event.key)) {
+      const deferred = deferredAdapterEvents.get(event.key) ?? [];
+      deferred.push({ event, generation });
+      deferredAdapterEvents.set(event.key, deferred);
+      return;
+    }
+    if (event.type === "clear" && syncCoordinator?.hasPendingWrites()) {
+      const deferred = deferredAdapterEvents.get("*") ?? [];
+      deferred.push({ event, generation });
+      deferredAdapterEvents.set("*", deferred);
+      return;
     }
 
     const applyExternalState = (nextState: TState) => {
@@ -895,6 +834,17 @@ export function createNusmStore<TState>(
     if (!unit) return;
 
     if (event.type === "remove") {
+      const observedGeneration =
+        generation ?? persistenceKeyGenerations.get(event.key) ?? 0;
+      if (
+        (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
+      )
+        return;
+      if (
+        event.key &&
+        syncCoordinator?.matchesPendingWrite(event.key, undefined, generation)
+      )
+        return;
       if (unit.kind === "entire") {
         applyExternalState(initialState);
       } else {
@@ -910,8 +860,20 @@ export function createNusmStore<TState>(
     }
 
     if (unit.kind === "entire") {
+      const observedGeneration =
+        generation ?? persistenceKeyGenerations.get(event.key) ?? 0;
+      if (
+        (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
+      )
+        return;
       const raw = await adapter.getItem(event.key);
       if (raw == null) return;
+      if (
+        (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
+      )
+        return;
+      if (syncCoordinator?.matchesPendingWrite(event.key, raw, generation))
+        return;
       const merged = hydrateConfig?.merge
         ? hydrateConfig.merge({
             initial: initialState,
@@ -922,20 +884,100 @@ export function createNusmStore<TState>(
     } else {
       const slice = slices.find((candidate) => candidate.key === unit.sliceKey);
       if (!slice) return;
+      const observedGeneration =
+        generation ?? persistenceKeyGenerations.get(event.key) ?? 0;
+      if (
+        (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
+      )
+        return;
       const raw = await adapter.getItem(event.key);
       if (raw == null) return;
+      if (
+        (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
+      )
+        return;
+      if (syncCoordinator?.matchesPendingWrite(event.key, raw, generation))
+        return;
       applyExternalState(slice.apply(store.state, raw));
     }
   };
 
-  const pendingAdapterEvents: AdapterEvent[] = [];
+  if (storeId) {
+    syncCoordinator = createNusmSyncCoordinator<TState>({
+      onError,
+      onEvent: async (event) => {
+        if (event.kind === "adapter") {
+          if (event.adapterEvent)
+            await handleAdapterEvent(event.adapterEvent, event.generation);
+          return;
+        }
+        if (
+          (event.kind === "update" || event.kind === "snapshot") &&
+          Object.hasOwn(event, "state")
+        ) {
+          if (event.revision) {
+            const comparison =
+              event.revision.counter - syncRevision.counter ||
+              event.revision.senderId.localeCompare(syncRevision.senderId);
+            if (comparison <= 0) return;
+            syncRevision = event.revision;
+          }
+          applyRemoteState(event.state, event.sourceId);
+        }
+      },
+      onStatus: (status) => {
+        synchronizationStatus = status;
+        if (status === "unavailable")
+          emitSynchronizationEvent(
+            "synchronization_unavailable",
+            "Synchronization source unavailable",
+          );
+        if (status === "active")
+          emitSynchronizationEvent("synchronization_connected");
+      },
+      sources: syncSources as
+        | import("./sync/types.js").NusmSyncSourceInput<TState>
+        | undefined,
+      storeId,
+    });
+  }
+
+  replayDeferredAdapterEvents = () => {
+    if (!syncCoordinator) return;
+    for (const [key, events] of deferredAdapterEvents) {
+      if (
+        (key === "*" && syncCoordinator.hasPendingWrites()) ||
+        (key !== "*" && syncCoordinator.isPendingWrite(key))
+      )
+        continue;
+      deferredAdapterEvents.delete(key);
+      for (const deferred of events)
+        void syncCoordinator.enqueueAdapterEvent(
+          deferred.event,
+          deferred.generation,
+        );
+    }
+  };
+
+  const pendingAdapterEvents: Array<{
+    event: AdapterEvent;
+    generation?: number;
+  }> = [];
   if (adapter?.subscribe) {
     const stopAdapterSubscription = adapter.subscribe((event) => {
       if (!isReady) {
-        pendingAdapterEvents.push(event);
+        pendingAdapterEvents.push({
+          event,
+          generation: event.key
+            ? (persistenceKeyGenerations.get(event.key) ?? 0)
+            : undefined,
+        });
         return;
       }
-      void handleAdapterEvent(event);
+      void syncCoordinator?.enqueueAdapterEvent(
+        event,
+        event.key ? (persistenceKeyGenerations.get(event.key) ?? 0) : undefined,
+      );
     });
     cleanupTasks.push(stopAdapterSubscription);
   }
@@ -1008,7 +1050,6 @@ export function createNusmStore<TState>(
       if (sequence !== snapshotSequence) return undefined;
       devtoolsEmitter.emitSnapshot({
         adapterName: adapter?.name,
-        crossTab: crossTabStatus,
         eventLogCap,
         hydration: getHydrationSnapshot(),
         initial: initialState,
@@ -1020,6 +1061,7 @@ export function createNusmStore<TState>(
         persistenceStrategy: adapter ? strategy : undefined,
         storeId: storeIdValue,
         synchronization: resolveSynchronization(persisted),
+        synchronizationStatus,
       });
       return undefined;
     } catch (error) {
@@ -1037,7 +1079,6 @@ export function createNusmStore<TState>(
 
   const supersedePendingPersistence = (operation: () => Promise<void>) => {
     supersededPersistenceState = { value: store.state };
-    persistenceGeneration += 1;
     for (const key of persistenceUnits.keys()) {
       queuedPayloads.delete(key);
       queuedGenerations.delete(key);
@@ -1094,12 +1135,16 @@ export function createNusmStore<TState>(
     for (const { prior, unit } of committed.reverse()) {
       try {
         if (prior == null)
-          await recordAdapterWrite(unit.key, () =>
-            persistenceAdapter.removeItem(unit.key),
+          await recordAdapterWrite(
+            unit.key,
+            () => persistenceAdapter.removeItem(unit.key),
+            undefined,
           );
         else
-          await recordAdapterWrite(unit.key, () =>
-            persistenceAdapter.setItem(unit.key, prior),
+          await recordAdapterWrite(
+            unit.key,
+            () => persistenceAdapter.setItem(unit.key, prior),
+            prior,
           );
       } catch (error) {
         rollbackError = rollbackError ?? error;
@@ -1123,8 +1168,10 @@ export function createNusmStore<TState>(
     const committed: CommittedWrite[] = [];
     try {
       for (const [index, unit] of units.entries()) {
-        await recordAdapterWrite(unit.key, () =>
-          persistenceAdapter.setItem(unit.key, unit.value),
+        await recordAdapterWrite(
+          unit.key,
+          () => persistenceAdapter.setItem(unit.key, unit.value),
+          unit.value,
         );
         committed.push({ prior: previous[index], unit });
       }
@@ -1138,8 +1185,10 @@ export function createNusmStore<TState>(
     assertDevtoolsValue(value);
     if (strategy === "entire") {
       const key = resolveKey({ kind: "entire" });
-      await recordAdapterWrite(key, () =>
-        persistenceAdapter.setItem(key, value),
+      await recordAdapterWrite(
+        key,
+        () => persistenceAdapter.setItem(key, value),
+        value,
       );
       return;
     }
@@ -1185,7 +1234,7 @@ export function createNusmStore<TState>(
       const key = resolveKey({ kind: "slice", sliceKey: slice.key });
       if (nestedPath.length === 0) {
         assertDevtoolsValue(value);
-        await recordAdapterWrite(key, () => adapter.setItem(key, value));
+        await recordAdapterWrite(key, () => adapter.setItem(key, value), value);
         return;
       }
       const current = await adapter.getItem(key);
@@ -1193,7 +1242,7 @@ export function createNusmStore<TState>(
       assertDevtoolsValue(base);
       const next = setValueAtPath(base, nestedPath, value);
       assertDevtoolsValue(next);
-      await recordAdapterWrite(key, () => adapter.setItem(key, next));
+      await recordAdapterWrite(key, () => adapter.setItem(key, next), next);
     });
   };
   const removePersistedValueAtPath = (path: NusmDevtoolsPath) => {
@@ -1216,7 +1265,7 @@ export function createNusmStore<TState>(
     return supersedePendingPersistence(async () => {
       const key = resolveKey({ kind: "slice", sliceKey: slice.key });
       if (nestedPath.length === 0) {
-        await recordAdapterWrite(key, () => adapter.removeItem(key));
+        await recordAdapterWrite(key, () => adapter.removeItem(key), undefined);
         return;
       }
       const current = await adapter.getItem(key);
@@ -1225,7 +1274,7 @@ export function createNusmStore<TState>(
       assertDevtoolsValue(current);
       const next = removeValueAtPath(current, nestedPath);
       assertDevtoolsValue(next);
-      await recordAdapterWrite(key, () => adapter.setItem(key, next));
+      await recordAdapterWrite(key, () => adapter.setItem(key, next), next);
     });
   };
 
@@ -1384,8 +1433,11 @@ export function createNusmStore<TState>(
   subscribeToStore();
   void hydrate().then(async () => {
     if (pendingAdapterEvents.length > 0) {
-      for (const event of pendingAdapterEvents.splice(0)) {
-        await handleAdapterEvent(event);
+      for (const pending of pendingAdapterEvents.splice(0)) {
+        await syncCoordinator?.enqueueAdapterEvent(
+          pending.event,
+          pending.generation,
+        );
       }
     }
   });
@@ -1403,15 +1455,15 @@ export function createNusmStore<TState>(
   store.dispose = () => {
     if (disposePromise) return disposePromise;
     disposed = true;
-    crossTabTransport?.close();
-    crossTabTransport = undefined;
     pacer?.cancel();
     for (const cleanup of cleanupTasks.splice(0)) cleanup();
-    crossTabStatus = "disposed";
-    emitCrossTabEvent("cross_tab_disposed");
-    disposePromise = flushQueue().finally(() => {
-      void emitDevtoolsSnapshot();
-    });
+    synchronizationStatus = "disposed";
+    emitSynchronizationEvent("synchronization_disposed");
+    disposePromise = Promise.resolve(syncCoordinator?.dispose())
+      .then(() => flushQueue())
+      .finally(() => {
+        void emitDevtoolsSnapshot();
+      });
     return disposePromise;
   };
 

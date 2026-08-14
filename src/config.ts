@@ -1,9 +1,9 @@
 import type { NusmGlobalOptions } from "./types.js";
 
-let globalOptions: NusmGlobalOptions = { crossTab: false };
+let globalOptions: NusmGlobalOptions = {};
 
 export const configureNusm = (options: NusmGlobalOptions): void => {
-  globalOptions = { crossTab: options.crossTab };
+  globalOptions = { sync: options.sync };
 };
 
 export const getNusmGlobalOptions = (): Readonly<NusmGlobalOptions> =>

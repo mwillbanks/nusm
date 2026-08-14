@@ -15,6 +15,11 @@ application code.
 
 ## Store migration
 
+Persisted stores now require an explicit, stable `storeId`. A Devtools display
+name no longer supplies persistence identity. Add `storeId` to every store
+using an adapter, and migrate existing adapter keys from any name-derived
+identity before releasing the update.
+
 The current `@tanstack/store` API uses functional setters and value-only
 subscriptions. Replace direct updates such as:
 

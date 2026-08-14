@@ -3,12 +3,22 @@ export { createLocalStorageAdapter } from "./adapters/localStorageAdapter.js";
 export { createSessionStorageAdapter } from "./adapters/sessionStorageAdapter.js";
 export { configureNusm } from "./config.js";
 export { createNusmStore } from "./nusm.js";
-
+export type {
+  NusmSyncContext,
+  NusmSyncEvent,
+  NusmSyncEventKind,
+  NusmSyncOptions,
+  NusmSyncRevision,
+  NusmSyncSource,
+  NusmSyncSourceInput,
+  NusmSyncStatus,
+  NusmSyncValidationResult,
+  NusmSyncValidator,
+} from "./sync/index.js";
 export type {
   AdapterEvent,
   AdapterEventType,
   CreateNusmStoreOptions,
-  CrossTabStatus,
   HydrateConfig,
   HydrationState,
   HydrationStatus,

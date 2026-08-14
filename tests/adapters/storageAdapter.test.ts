@@ -1,11 +1,10 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import {
   createLocalStorageAdapter,
   createNusmStore,
   createSessionStorageAdapter,
   type StorageLike,
 } from "../../src/index";
-import { installFakeBroadcastChannel } from "../helpers/fake-broadcast-channel";
 
 type MemoryStorage = StorageLike & { data: Map<string, string> };
 
@@ -31,11 +30,6 @@ const createMemoryStorage = (): MemoryStorage => {
 };
 
 describe("storage adapter", () => {
-  let restoreBroadcastChannel: (() => void) | undefined;
-  afterEach(() => {
-    restoreBroadcastChannel?.();
-    restoreBroadcastChannel = undefined;
-  });
   test("throws when no storage available", () => {
     const originalWindow = globalThis.window;
     // @ts-expect-error - test-only global mutation
@@ -125,8 +119,7 @@ describe("storage adapter", () => {
     unsubscribe?.();
   });
 
-  test("the store preserves adapter subscriptions across cross-tab modes", async () => {
-    restoreBroadcastChannel = installFakeBroadcastChannel();
+  test("the store preserves adapter subscriptions for identified stores", async () => {
     const storage = createMemoryStorage();
     const storageAdapter = createLocalStorageAdapter({ storage });
     let subscriptions = 0;
@@ -147,7 +140,6 @@ describe("storage adapter", () => {
       { value: 0 },
       {
         adapter,
-        crossTab: true,
         persist: { strategy: "entire" },
         storeId: "enabled-events",
       },

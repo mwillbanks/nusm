@@ -1,4 +1,5 @@
 import type { Store } from "@tanstack/store";
+import type { NusmSyncOptions, NusmSyncStatus } from "./sync/types.js";
 
 export type NusmPacerConfig =
   | false
@@ -60,7 +61,7 @@ export interface HydrateConfig<TState> {
 
 export interface CreateNusmStoreOptions<TState> {
   adapter?: NusmAdapter;
-  crossTab?: boolean;
+  sync?: false | NusmSyncOptions<TState>;
   persist?: {
     strategy: "entire" | "slices";
     slices?: Array<PersistSlice<TState>>;
@@ -72,15 +73,10 @@ export interface CreateNusmStoreOptions<TState> {
 }
 
 export interface NusmGlobalOptions {
-  crossTab: boolean;
+  sync?: NusmSyncOptions;
 }
 
-export type CrossTabStatus =
-  | "active"
-  | "disabled"
-  | "unavailable"
-  | "skipped_missing_identity"
-  | "disposed";
+export type { NusmSyncStatus };
 
 export type HydrationState =
   | "not_configured"
@@ -104,11 +100,11 @@ export type NusmEventType =
   | "persist_flush_ok"
   | "persist_flush_error"
   | "adapter_external_event"
-  | "cross_tab_connected"
-  | "cross_tab_remote_applied"
-  | "cross_tab_unavailable"
-  | "cross_tab_protocol_error"
-  | "cross_tab_disposed"
+  | "synchronization_connected"
+  | "synchronization_remote_applied"
+  | "synchronization_unavailable"
+  | "synchronization_protocol_error"
+  | "synchronization_disposed"
   | "devtools_command"
   | "devtools_command_error"
   | "devtools_snapshot_error";
@@ -124,7 +120,7 @@ export interface NusmEvent {
 }
 
 export interface NusmDevtoolsSnapshot {
-  crossTab?: CrossTabStatus;
+  synchronizationStatus?: NusmSyncStatus;
   eventLogCap?: number;
   storeId: string;
   instanceId: string;
