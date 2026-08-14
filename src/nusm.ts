@@ -871,7 +871,7 @@ export function createNusmStore<TState>(
           if (event) await applySyncStateEvent(event, true);
           assertHydrationCurrent(generation);
         }
-        await syncCoordinator?.waitForIdle();
+        await syncCoordinator?.waitForIdle(!syncOptimistic);
         assertHydrationCurrent(generation);
         if (deferredSyncEvents.length === 0) return;
       }

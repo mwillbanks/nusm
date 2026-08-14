@@ -51,6 +51,38 @@ describe("synchronization communication", () => {
     await store.dispose();
   });
 
+  test("resolves optimistic readiness while publication is pending", async () => {
+    let markPublicationStarted!: () => void;
+    let releasePublication!: () => void;
+    const publicationStarted = new Promise<void>((resolve) => {
+      markPublicationStarted = resolve;
+    });
+    const source: NusmSyncSource = {
+      publish: (event) => {
+        if (event.kind !== "ready" || event.hydration !== "ready") return;
+        markPublicationStarted();
+        return new Promise<void>((resolve) => {
+          releasePublication = resolve;
+        });
+      },
+      start: () => undefined,
+    };
+    const store = createNusmStore(
+      { value: 0 },
+      {
+        storeId: "optimistic-ready",
+        sync: { optimistic: true, source, validator: validateSyncCandidate },
+      },
+    );
+
+    await publicationStarted;
+    await store.ready;
+
+    expect(store.isReady).toBe(true);
+    releasePublication();
+    await store.dispose();
+  });
+
   test("applies a validated update received during hydration", async () => {
     const source = createSource();
     let resolveHydration!: (value: unknown) => void;
