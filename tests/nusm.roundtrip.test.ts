@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { NusmDevtoolsSnapshot } from "../../src";
-import { createLocalStorageAdapter, createNusmStore } from "../../src";
+import type { NusmDevtoolsSnapshot } from "../src";
+import { createLocalStorageAdapter, createNusmStore } from "../src";
 
 const relay = () => {
   const target = new EventTarget();

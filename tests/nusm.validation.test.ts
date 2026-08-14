@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { NusmAdapter, PersistSlice } from "../../src";
-import { createNusmStore } from "../../src";
+import type { NusmAdapter, PersistSlice } from "../src";
+import { createNusmStore } from "../src";
 
 const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 const relay = () => {
@@ -16,7 +16,7 @@ const relay = () => {
   return target;
 };
 
-describe("devtools mutation validation", () => {
+describe("nusm validation", () => {
   test("rejects lossy memory values and persisted writes without adapters", async () => {
     const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
     const target = relay();

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { NusmAdapter, PersistSlice } from "../../src";
-import { createNusmStore } from "../../src";
+import type { NusmAdapter, PersistSlice } from "../src";
+import { createNusmStore } from "../src";
 
 type State = { a: number; b: number };
 

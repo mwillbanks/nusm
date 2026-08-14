@@ -1,2 +1,2 @@
 bun lint-staged
-bun test --changed
+bun run test:coverage

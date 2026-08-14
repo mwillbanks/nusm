@@ -45,7 +45,7 @@ const snapshot = (
   storeId,
 });
 
-describe("review finding remediations", () => {
+describe("panel commands", () => {
   test("rejects nested array string properties, gaps, and missing removals", () => {
     const root = { groups: [{ members: ["Ada"] }] };
     expect(() =>

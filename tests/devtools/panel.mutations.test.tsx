@@ -54,7 +54,7 @@ const panelSnapshot = (
 
 afterEach(() => cleanup());
 
-describe("fourth semantic review remediations", () => {
+describe("panel mutations", () => {
   test("edits only own data properties without invoking getters or inherited paths", () => {
     let getterCalls = 0;
     const root = { profile: { name: "Ada" } };

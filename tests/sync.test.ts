@@ -25,7 +25,7 @@ const createDevtoolsRelay = () => {
   return target;
 };
 
-describe("cross-tab communication", () => {
+describe("synchronization communication", () => {
   let restoreBroadcastChannel: () => void;
 
   beforeEach(() => {

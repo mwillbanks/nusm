@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type { NusmAdapter, PersistSlice } from "../../src";
-import { createNusmStore } from "../../src";
+import type { NusmAdapter, PersistSlice } from "../src";
+import { createNusmStore } from "../src";
 
-describe("eleventh semantic review remediation", () => {
+describe("nusm hydration slices", () => {
   test("rejects a missing slice that invalidates an already hydrated sibling", async () => {
     type State = { a: number; b: number };
     const values = new Map<string, unknown>([

@@ -38,7 +38,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe("sixth semantic review remediations", () => {
+describe("panel state", () => {
   test("derives entire-store health for every memory command and no-op persisted writes", async () => {
     const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
     const target = relay();

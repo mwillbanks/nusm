@@ -26,7 +26,7 @@ afterEach(() => {
   delete globalThis.__TANSTACK_EVENT_TARGET__;
 });
 
-describe("final review remediation", () => {
+describe("panel accessibility", () => {
   test("seeds an interacting missing slice from initial state without divergence", async () => {
     type State = { mirror: string; profile: { name: string } };
     const target = relay();

@@ -35,7 +35,7 @@ const snapshot = (
 
 afterEach(cleanup);
 
-describe("seventh semantic review remediations", () => {
+describe("panel health", () => {
   test("renders exhaustive memory-only and unknown synchronization health", () => {
     const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
     const target = relay();

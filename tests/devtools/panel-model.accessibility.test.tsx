@@ -17,7 +17,7 @@ const relay = () => {
 
 afterEach(cleanup);
 
-describe("eighth semantic review remediations", () => {
+describe("panel model accessibility", () => {
   test("counts enumerable accessors consistently without evaluating them", () => {
     const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
     const target = relay();

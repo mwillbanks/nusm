@@ -30,7 +30,7 @@ const createMemoryStorage = (): MemoryStorage => {
   };
 };
 
-describe("storage adapters", () => {
+describe("storage adapter", () => {
   let restoreBroadcastChannel: (() => void) | undefined;
   afterEach(() => {
     restoreBroadcastChannel?.();

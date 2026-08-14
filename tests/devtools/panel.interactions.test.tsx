@@ -49,7 +49,7 @@ const snapshot = (
   storeId,
 });
 
-describe("third semantic review remediations", () => {
+describe("panel interactions", () => {
   test("uses reversible paths and safely bounds hostile state inspection", () => {
     const path = ["a.b", "x[0]", ""];
     expect(parsePath(formatPath(path))).toEqual(path);

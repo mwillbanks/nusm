@@ -42,7 +42,7 @@ const snapshot = (storeId: string) => ({
   storeId,
 });
 
-describe("second semantic review remediations", () => {
+describe("panel editing", () => {
   test("binds destructive editor sessions to a store and closes stale sessions", () => {
     const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
     const target = relay();

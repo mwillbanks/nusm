@@ -4,7 +4,7 @@ import { NusmDevtoolsPanel } from "../../src/devtools/panel";
 
 afterEach(cleanup);
 
-describe("ninth semantic review remediations", () => {
+describe("panel about accessibility", () => {
   test("opens a labelled About tabpanel without an instrumented store", () => {
     const view = render(<NusmDevtoolsPanel devtoolsOpen theme="dark" />);
 

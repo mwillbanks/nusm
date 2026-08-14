@@ -42,7 +42,7 @@ afterEach(() => {
   delete globalThis.__TANSTACK_EVENT_TARGET__;
 });
 
-describe("devtools runtime remediation", () => {
+describe("panel runtime", () => {
   test("seeds a missing entire state before readiness and reports synchronization", async () => {
     const target = relay();
     globalThis.__TANSTACK_EVENT_TARGET__ = target;

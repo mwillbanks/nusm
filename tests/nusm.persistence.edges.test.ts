@@ -4,9 +4,9 @@ import type {
   NusmAdapter,
   NusmDevtoolsSnapshot,
   PersistSlice,
-} from "../../src";
-import { createNusmStore } from "../../src";
-import { setValueAtPath } from "../../src/devtools/path";
+} from "../src";
+import { createNusmStore } from "../src";
+import { setValueAtPath } from "../src/devtools/path";
 
 const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 const relay = () => {
@@ -28,7 +28,7 @@ const command = (target: EventTarget, payload: Record<string, unknown>) =>
 
 afterEach(() => jest.restoreAllMocks());
 
-describe("fifth semantic review remediations", () => {
+describe("nusm persistence edges", () => {
   test("keeps delayed set and remove notifications isolated while writes are in flight", async () => {
     const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
     const target = relay();
