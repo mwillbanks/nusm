@@ -55,9 +55,26 @@ describe("synchronization communication", () => {
     const source = createSource();
     let resolveHydration!: (value: unknown) => void;
     let markHydrationStarted!: () => void;
+    let resolveCallbackPublish!: () => void;
+    let markCallbackPublishStarted!: () => void;
+    const callbackPublishStarted = new Promise<void>((resolve) => {
+      markCallbackPublishStarted = resolve;
+    });
     const hydrationStarted = new Promise<void>((resolve) => {
       markHydrationStarted = resolve;
     });
+    source.source.publish = (event) => {
+      source.published.push(event);
+      if (
+        event.kind === "update" &&
+        (event.state as { value?: number }).value === 45
+      ) {
+        markCallbackPublishStarted();
+        return new Promise<void>((resolve) => {
+          resolveCallbackPublish = resolve;
+        });
+      }
+    };
     const store = createNusmStore(
       { value: 0 },
       {
@@ -96,6 +113,8 @@ describe("synchronization communication", () => {
           state: { value: 44 },
           storeId: "deferred-update",
         });
+      if (store.state.value === 44)
+        queueMicrotask(() => store.setState(() => ({ value: 45 })));
     });
     await hydrationStarted;
     source.emit({
@@ -108,10 +127,17 @@ describe("synchronization communication", () => {
     await Promise.resolve();
 
     resolveHydration(null);
-    await store.ready;
+    let readyResolved = false;
+    const ready = store.ready.then(() => {
+      readyResolved = true;
+    });
+    await callbackPublishStarted;
+    expect(readyResolved).toBe(false);
+    resolveCallbackPublish();
+    await ready;
 
-    expect(transitions.slice(-3)).toEqual([42, 43, 44]);
-    expect(store.state).toEqual({ value: 44 });
+    expect(transitions.slice(-4)).toEqual([42, 43, 44, 45]);
+    expect(store.state).toEqual({ value: 45 });
     if (typeof unsubscribe === "function") unsubscribe();
     else unsubscribe.unsubscribe();
     await store.dispose();

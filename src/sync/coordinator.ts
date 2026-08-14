@@ -1048,9 +1048,10 @@ export const createNusmSyncCoordinator = <TState>(
   };
   const waitForIdle = async () => {
     while (true) {
-      const pending = queue;
-      await pending;
-      if (pending === queue) return;
+      const pendingEvents = queue;
+      const pendingPublishes = publishQueue;
+      await Promise.all([pendingEvents, pendingPublishes]);
+      if (pendingEvents === queue && pendingPublishes === publishQueue) return;
     }
   };
 
