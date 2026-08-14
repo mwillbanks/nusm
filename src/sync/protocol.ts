@@ -32,6 +32,11 @@ export const DEFAULT_BROADCAST_LIMITS: BroadcastProtocolLimits = {
   quarantineMs: 30_000,
 };
 
+/** Revision counters intentionally stay within a signed 31-bit range. */
+export const MAX_SYNC_REVISION_COUNTER = 0x7fffffff;
+export const SYNC_REVISION_ROLLOVER_WINDOW = 4096;
+export const MAX_SYNC_REVISION_EPOCH = Number.MAX_SAFE_INTEGER;
+
 export type BroadcastWireEnvelope = {
   version: typeof BROADCAST_PROTOCOL_VERSION;
   kind: NusmSyncEventKind;
@@ -50,12 +55,31 @@ export type BroadcastWireEnvelope = {
   statePresent: boolean;
   payload: string;
   signature: string;
+  hydration?: "hydrating" | "ready";
+  creationTime?: number;
+  requestId?: string;
 };
 
 const encoder = new TextEncoder();
 
 export const utf8Size = (value: string): number =>
   encoder.encode(value).byteLength;
+
+export const isValidSyncRevisionCounter = (
+  counter: unknown,
+): counter is number =>
+  typeof counter === "number" &&
+  Number.isInteger(counter) &&
+  Number.isSafeInteger(counter) &&
+  counter > 0 &&
+  counter <= MAX_SYNC_REVISION_COUNTER - SYNC_REVISION_ROLLOVER_WINDOW;
+
+export const isValidSyncRevisionEpoch = (epoch: unknown): epoch is string => {
+  if (typeof epoch !== "string" || !/^(?:0|[1-9]\d*)$/u.test(epoch))
+    return false;
+  const numeric = Number(epoch);
+  return Number.isSafeInteger(numeric) && numeric <= MAX_SYNC_REVISION_EPOCH;
+};
 
 const toBase64Url = (value: Uint8Array): string => {
   let binary = "";
@@ -97,6 +121,9 @@ const headerValues = (
   envelope.targetId,
   envelope.statePresent ? "1" : "0",
   envelope.payload,
+  envelope.hydration ?? "",
+  envelope.creationTime === undefined ? "" : String(envelope.creationTime),
+  envelope.requestId ?? "",
 ];
 
 /** The signed representation has a fixed field order and exact payload text. */
@@ -215,6 +242,15 @@ const asRevision = (
     ? undefined
     : { counter, senderId, ...(epoch ? { epoch } : {}) };
 
+const optionalEnvelopeFields = <TState>(event: NusmSyncEvent<TState>) => {
+  const fields: Partial<BroadcastWireEnvelope> = {};
+  if (event.hydration) fields.hydration = event.hydration;
+  if (event.creationTime !== undefined)
+    fields.creationTime = event.creationTime;
+  if (event.requestId) fields.requestId = event.requestId;
+  return fields;
+};
+
 export const eventToEnvelope = <TState>(
   event: NusmSyncEvent<TState>,
   senderId: string,
@@ -242,6 +278,7 @@ export const eventToEnvelope = <TState>(
     storeId: event.storeId,
     targetId: event.targetId ?? "",
     version: BROADCAST_PROTOCOL_VERSION,
+    ...optionalEnvelopeFields(event),
   };
 };
 
@@ -280,6 +317,11 @@ export const envelopeToEvent = (
   ...(envelope.eventKey ? { key: envelope.eventKey } : {}),
   ...(envelope.generation === null ? {} : { generation: envelope.generation }),
   ...(envelope.targetId ? { targetId: envelope.targetId } : {}),
+  ...(envelope.hydration ? { hydration: envelope.hydration } : {}),
+  ...(envelope.creationTime === undefined
+    ? {}
+    : { creationTime: envelope.creationTime }),
+  ...(envelope.requestId ? { requestId: envelope.requestId } : {}),
 });
 
 export const createHmacKey = async (

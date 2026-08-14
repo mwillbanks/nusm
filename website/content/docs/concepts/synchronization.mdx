@@ -53,3 +53,27 @@ credentials, tokens, secrets, or sensitive personal data.
 Call `await store.dispose()` when the store lifetime ends. Disposal releases only
 that store's source subscription. Keep the source configured only while its
 stores are active, and treat `ready` as the store hydration lifecycle signal.
+
+## Hydration and convergence
+
+Synchronization connects its sources before hydration starts. Each store first
+announces a signed `hydrating` presence, then announces `ready` only after its
+adapter has completed. The earliest live ready peer wins by signed creation
+time, with sender identity as the deterministic tie-breaker. A hydrating peer
+keeps its five-second lease alive until it becomes ready, so a newer tab cannot
+answer with a default snapshot while an older tab is still restoring data.
+
+The default (strict) mode keeps `store.isReady` false and leaves `store.ready`
+pending until convergence. A requester sends a correlated snapshot request to
+the elected leader. The leader retries an immutable, targeted snapshot through
+the request retry schedule (50, 100, 200, and 400 ms). The requester applies a
+matching snapshot once, acknowledges it, and converges only after the leader
+confirms that acknowledgement. Lost requests, snapshots, or acknowledgements
+therefore recover without accepting unsolicited messages. An isolated store
+finishes after its bounded discovery cycle or when its source is unavailable.
+
+Set `sync.optimistic` to resolve `store.ready` after local hydration while peer
+discovery continues. Local updates remain queued until convergence, then flush
+in order. Updates carry signed cohort epochs and bounded Lamport counters; the
+counter rolls to a new epoch before the signed 31-bit range is exhausted, and
+malformed, stale, replayed, skipped, or near-overflow revisions are ignored.

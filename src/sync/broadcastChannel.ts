@@ -6,6 +6,8 @@ import {
   deriveChannelName,
   envelopeToEvent,
   eventToEnvelope,
+  isValidSyncRevisionCounter,
+  isValidSyncRevisionEpoch,
   signEnvelope,
   utf8Size,
   verifyEnvelope,
@@ -47,6 +49,7 @@ type ChannelEntry = {
   sequence: number;
   active: boolean;
   inbound: Promise<void>;
+  localSenderIds: Set<string>;
 };
 
 const textEncoder = new TextEncoder();
@@ -99,10 +102,23 @@ const isIdentifier = (value: unknown, maxBytes: number): value is string =>
   textEncoder.encode(value).byteLength <= maxBytes;
 
 const isCounter = (value: unknown): value is number =>
-  value === null ||
-  (typeof value === "number" && Number.isSafeInteger(value) && value >= 0);
+  value === null || isValidSyncRevisionCounter(value);
 
 const validKinds = new Set(["request", "snapshot", "update", "ack", "ready"]);
+
+const hasOptionalEnvelopeShape = (
+  candidate: Partial<BroadcastWireEnvelope>,
+  limits: BroadcastProtocolLimits,
+) =>
+  (candidate.hydration === undefined ||
+    candidate.hydration === "hydrating" ||
+    candidate.hydration === "ready") &&
+  (candidate.creationTime === undefined ||
+    (typeof candidate.creationTime === "number" &&
+      Number.isSafeInteger(candidate.creationTime) &&
+      candidate.creationTime >= 0)) &&
+  (candidate.requestId === undefined ||
+    isIdentifier(candidate.requestId, limits.maxIdentifierBytes));
 
 const hasEnvelopeShape = (
   candidate: Partial<BroadcastWireEnvelope>,
@@ -113,7 +129,7 @@ const hasEnvelopeShape = (
     isString(candidate.kind) && validKinds.has(candidate.kind),
     isIdentifier(candidate.storeId, limits.maxIdentifierBytes),
     isIdentifier(candidate.senderId, limits.maxIdentifierBytes),
-    isString(candidate.epoch),
+    candidate.epoch === "" || isValidSyncRevisionEpoch(candidate.epoch),
     isIdentifier(candidate.messageId, limits.maxIdentifierBytes),
     isCounter(candidate.revisionCounter),
     isString(candidate.revisionSenderId),
@@ -130,6 +146,7 @@ const hasEnvelopeShape = (
     typeof candidate.statePresent === "boolean",
     isString(candidate.payload),
     isString(candidate.signature),
+    hasOptionalEnvelopeShape(candidate, limits),
   ].every(Boolean);
 
 const hasEnvelopeBounds = (
@@ -184,16 +201,6 @@ const hasValidMessageIdentity = (envelope: BroadcastWireEnvelope): boolean => {
     envelope.messageId.startsWith(prefix) &&
     envelope.messageId.length > prefix.length
   );
-};
-
-const notifyListeners = (entry: ChannelEntry, event: NusmSyncEvent) => {
-  for (const listener of entry.listeners.keys()) {
-    try {
-      listener(event);
-    } catch {
-      // Listener failures belong to the coordinator and cannot affect peers.
-    }
-  }
 };
 
 const createSourceId = (): string => {
@@ -293,6 +300,7 @@ export const createBroadcastChannelSyncSource = <TState = unknown>(
           inbound: Promise.resolve(),
           invalidCount: 0,
           listeners: new Map(),
+          localSenderIds: new Set(),
           peers: new Map(),
           quarantineUntil: 0,
           sequence: 0,
@@ -443,7 +451,23 @@ export const createBroadcastChannelSyncSource = <TState = unknown>(
     try {
       const event = envelopeToEvent(envelope, limits);
       entry.invalidCount = 0;
-      notifyListeners(entry, event);
+      const owned = [...entry.listeners.entries()].filter(
+        ([, context]) => context.instanceId === envelope.senderId,
+      );
+      if (
+        owned.length === 0 &&
+        entry.localSenderIds.has(envelope.senderId) &&
+        [...entry.listeners.values()].every((context) => !context.instanceId)
+      )
+        return;
+      for (const [listener, context] of entry.listeners) {
+        if (context.instanceId === envelope.senderId) continue;
+        try {
+          listener(event);
+        } catch {
+          // Listener failures belong to the coordinator and cannot affect peers.
+        }
+      }
     } catch (error) {
       reportProtocol(entry, asError(error));
     }
@@ -454,10 +478,14 @@ export const createBroadcastChannelSyncSource = <TState = unknown>(
     event: NusmSyncEvent<TState>,
   ) => {
     sourceId ??= createSourceId();
-    const messageId = `${sourceId}:${++entry.sequence}`;
+    const senderId = isIdentifier(event.sourceId, limits.maxIdentifierBytes)
+      ? event.sourceId
+      : sourceId;
+    entry.localSenderIds.add(senderId);
+    const messageId = `${senderId}:${++entry.sequence}`;
     if (!validOutboundIdentifiers(event, messageId))
       throw new Error("Synchronization identifiers exceed their size limit.");
-    const envelope = eventToEnvelope(event, sourceId, messageId, limits);
+    const envelope = eventToEnvelope(event, senderId, messageId, limits);
     if (!isWireEnvelope({ ...envelope, signature: "" }, limits))
       throw new Error("Synchronization event contains invalid fields.");
     const signed = await signEnvelope(await getKey(), envelope);

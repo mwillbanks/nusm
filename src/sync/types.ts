@@ -16,6 +16,8 @@ export type NusmSyncEventKind =
   | "ready"
   | "adapter";
 
+export type NusmSyncHydrationPhase = "hydrating" | "ready";
+
 /** The common envelope consumed by a store synchronization coordinator. */
 export interface NusmSyncEvent<TState = unknown> {
   eventId: string;
@@ -30,6 +32,12 @@ export interface NusmSyncEvent<TState = unknown> {
   generation?: number;
   targetId?: string;
   adapterEvent?: AdapterEvent;
+  /** Lifecycle phase carried by signed handshake events. */
+  hydration?: NusmSyncHydrationPhase;
+  /** Signed creation time used for deterministic leader election. */
+  creationTime?: number;
+  /** Correlation identity for request/snapshot/ack handshakes. */
+  requestId?: string;
 }
 
 export interface NusmSyncContext {

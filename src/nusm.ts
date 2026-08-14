@@ -148,8 +148,11 @@ export function createNusmStore<TState>(
     : "disabled";
   let syncRevision: NusmSyncRevision = {
     counter: 0,
+    epoch: "0",
     senderId: devtoolsInstanceId,
   };
+  let hydratedForSync = !adapter;
+  const deferredSyncEvents: NusmSyncEvent<TState>[] = [];
   const cleanupTasks: Array<() => void> = [];
   let syncCoordinator:
     | ReturnType<typeof createNusmSyncCoordinator<TState>>
@@ -463,16 +466,13 @@ export function createNusmStore<TState>(
   const broadcastLocalState = (currentVal: TState, changedKeys?: string[]) => {
     if (!syncCoordinator || suppressSynchronization || disposed || !storeId)
       return;
-    syncRevision = {
-      counter: syncRevision.counter + 1,
-      senderId: devtoolsInstanceId,
-    };
+    syncRevision = syncCoordinator.nextRevision();
     const event: NusmSyncEvent<TState> = {
       changedKeys,
       eventId: `local:${storeId}:${++syncEventSequence}`,
       kind: "update",
       revision: syncRevision,
-      sourceId: "local",
+      sourceId: syncRevision.senderId,
       state: currentVal,
       storeId,
     };
@@ -522,6 +522,7 @@ export function createNusmStore<TState>(
     const subscription = store.subscribe((currentVal) => {
       const prevVal = previousState;
       previousState = currentVal;
+      if (currentVal === prevVal) return;
       if (suppressPersist) return;
       void emitDevtoolsSnapshot();
       const changedKeys = resolveChangedPersistenceKeys(prevVal, currentVal);
@@ -739,36 +740,49 @@ export function createNusmStore<TState>(
     }
   };
 
-  const hydrate = async () => {
-    if (!adapter) {
-      isReady = true;
-      readyResolve();
-      void syncCoordinator?.start();
-      emitDevtoolsSnapshot();
-      return;
-    }
-
+  const completeHydration = async (emitHydration: boolean) => {
+    hydratedForSync = true;
+    const announce = syncCoordinator?.announceReady(store.state);
+    if (syncCoordinator && syncOptions?.optimistic) void announce;
+    else await announce;
+    if (syncCoordinator && !syncOptions?.optimistic)
+      await syncCoordinator.waitForConvergence();
+    for (const event of deferredSyncEvents.splice(0))
+      await syncCoordinator?.enqueue(event);
+    isReady = true;
+    readyResolve();
+    if (emitHydration)
+      devtoolsEmitter?.emitHydration(storeIdValue, getHydrationSnapshot());
+    emitDevtoolsSnapshot();
+  };
+  const hydrateWithoutAdapter = async () => {
+    await completeHydration(false);
+  };
+  const hydrateWithAdapter = async () => {
     devtoolsEmitter?.emitEvent({
       storeId: storeIdValue,
       ts: Date.now(),
       type: "hydrate_start",
     });
-
+    const hydratedState =
+      strategy === "entire" ? await hydrateEntire() : await hydrateSlices();
+    applyState(hydratedState);
+    finalizeHydration();
+    devtoolsEmitter?.emitEvent({
+      storeId: storeIdValue,
+      ts: Date.now(),
+      type: "hydrate_applied",
+    });
+    await completeHydration(true);
+  };
+  const hydrate = async () => {
     try {
-      const hydratedState =
-        strategy === "entire" ? await hydrateEntire() : await hydrateSlices();
-      applyState(hydratedState);
-      finalizeHydration();
-      devtoolsEmitter?.emitEvent({
-        storeId: storeIdValue,
-        ts: Date.now(),
-        type: "hydrate_applied",
-      });
-      isReady = true;
-      readyResolve();
-      void syncCoordinator?.start();
-      devtoolsEmitter?.emitHydration(storeIdValue, getHydrationSnapshot());
-      emitDevtoolsSnapshot();
+      if (syncCoordinator) {
+        await syncCoordinator.start();
+        await syncCoordinator.announceHydrating(initialState);
+      }
+      if (!adapter) await hydrateWithoutAdapter();
+      else await hydrateWithAdapter();
     } catch (error) {
       hydrationStatus.overall = "error";
       devtoolsEmitter?.emitEvent({
@@ -902,33 +916,54 @@ export function createNusmStore<TState>(
     }
   };
 
+  const compareSyncRevisions = (
+    incoming: NusmSyncRevision,
+    current: NusmSyncRevision,
+  ) => {
+    const incomingEpoch = Number(incoming.epoch ?? "");
+    const currentEpoch = Number(current.epoch ?? "");
+    const epochComparison =
+      Number.isFinite(incomingEpoch) && Number.isFinite(currentEpoch)
+        ? incomingEpoch - currentEpoch
+        : (incoming.epoch ?? "").localeCompare(current.epoch ?? "");
+    return (
+      epochComparison ||
+      incoming.counter - current.counter ||
+      incoming.senderId.localeCompare(current.senderId)
+    );
+  };
+  const applySyncStateEvent = async (event: NusmSyncEvent<TState>) => {
+    if (!Object.hasOwn(event, "state")) return;
+    if (!hydratedForSync) {
+      deferredSyncEvents.push(event);
+      return;
+    }
+    if (
+      event.revision &&
+      compareSyncRevisions(event.revision, syncRevision) <= 0
+    )
+      return;
+    if (event.revision) syncRevision = event.revision;
+    applyRemoteState(event.state, event.sourceId);
+  };
+  const handleCoordinatorEvent = async (event: NusmSyncEvent<TState>) => {
+    if (event.kind === "adapter") {
+      if (event.adapterEvent)
+        await handleAdapterEvent(event.adapterEvent, event.generation);
+      return;
+    }
+    if (event.kind === "update" || event.kind === "snapshot")
+      await applySyncStateEvent(event);
+  };
+
   if (storeId) {
     syncCoordinator = createNusmSyncCoordinator<TState>({
-      instanceId: devtoolsInstanceId,
       onError: (error) => {
         onError?.(error);
         emitSynchronizationEvent("synchronization_protocol_error", error);
       },
-      onEvent: async (event) => {
-        if (event.kind === "adapter") {
-          if (event.adapterEvent)
-            await handleAdapterEvent(event.adapterEvent, event.generation);
-          return;
-        }
-        if (
-          (event.kind === "update" || event.kind === "snapshot") &&
-          Object.hasOwn(event, "state")
-        ) {
-          if (event.revision) {
-            const comparison =
-              event.revision.counter - syncRevision.counter ||
-              event.revision.senderId.localeCompare(syncRevision.senderId);
-            if (comparison <= 0) return;
-            syncRevision = event.revision;
-          }
-          applyRemoteState(event.state, event.sourceId);
-        }
-      },
+      onEvent: handleCoordinatorEvent,
+      onSnapshotRequest: () => store.state,
       onStatus: (status) => {
         synchronizationStatus = status;
         if (status === "unavailable")
@@ -939,6 +974,7 @@ export function createNusmStore<TState>(
         if (status === "active")
           emitSynchronizationEvent("synchronization_connected");
       },
+      optimistic: syncOptions?.optimistic,
       sources: syncSources as
         | import("./sync/types.js").NusmSyncSourceInput<TState>
         | undefined,
