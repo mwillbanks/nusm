@@ -64,6 +64,8 @@ describe("storage adapter", () => {
 
     const value = await adapter.getItem(key);
     expect(value).toEqual({ count: 2 });
+    await adapter.removeItem(key);
+    expect(await adapter.getItem(key)).toBeNull();
   });
 
   test("session storage adapter uses custom prefix", async () => {
@@ -181,6 +183,17 @@ describe("storage adapter", () => {
     expect(keys).toEqual([]);
   });
 
+  test("getAllKeys returns empty when storage length exists without key metadata", async () => {
+    const storage: StorageLike = {
+      getItem: () => null,
+      length: 1,
+      removeItem: () => {},
+      setItem: () => {},
+    };
+    const adapter = createLocalStorageAdapter({ storage });
+    expect(await adapter.getAllKeys?.()).toEqual([]);
+  });
+
   test("subscribe returns noop when window is missing", () => {
     const storage = createMemoryStorage();
     const originalWindow = globalThis.window;
@@ -190,7 +203,7 @@ describe("storage adapter", () => {
     const adapter = createLocalStorageAdapter({ storage });
     const unsubscribe = adapter.subscribe?.(() => {});
     expect(typeof unsubscribe).toBe("function");
-    unsubscribe?.();
+    expect(unsubscribe?.()).toBeUndefined();
 
     globalThis.window = originalWindow;
   });

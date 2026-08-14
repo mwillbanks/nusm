@@ -228,6 +228,19 @@ describe("panel mutations", () => {
       }),
     );
     expect(view.getAllByLabelText("Hydration error").length).toBeGreaterThan(0);
+    let deep: Record<string, unknown> = { value: true };
+    for (let index = 0; index < 18; index += 1) deep = { child: deep };
+    send(
+      target,
+      "snapshot",
+      panelSnapshot({ memory: deep, pendingKeys: [], persisted: deep }),
+    );
+    fireEvent.click(view.getByRole("tab", { name: "memory" }));
+    const expand = view.getByRole("button", { name: /Expand nested values/ });
+    fireEvent.click(expand);
+    expect(
+      view.queryByRole("button", { name: /Expand nested values/ }),
+    ).not.toBeInTheDocument();
     (() => {
       cleanup();
       globalThis.__TANSTACK_EVENT_TARGET__ = originalTarget;

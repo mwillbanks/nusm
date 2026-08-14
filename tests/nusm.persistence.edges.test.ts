@@ -29,6 +29,182 @@ const command = (target: EventTarget, payload: Record<string, unknown>) =>
 afterEach(() => jest.restoreAllMocks());
 
 describe("nusm persistence edges", () => {
+  test("marks hydration as failed when the adapter read rejects", async () => {
+    const errors: unknown[] = [];
+    const store = createNusmStore(
+      { value: 1 },
+      {
+        adapter: {
+          getItem: () => Promise.reject(new Error("read failed")),
+          name: "read-failure",
+          pacer: false,
+          removeItem: () => undefined,
+          setItem: () => undefined,
+        },
+        onError: (error) => errors.push(error),
+        persist: { strategy: "entire" },
+        storeId: "read-failure",
+      },
+    );
+    await store.ready;
+    expect(store.hydration.overall).toBe("error");
+    expect(errors).toHaveLength(1);
+  });
+
+  test("continues queued adapter reads after a rejected read", async () => {
+    let reads = 0;
+    const errors: unknown[] = [];
+    let notify: ((event: AdapterEvent) => void) | undefined;
+    const store = createNusmStore(
+      { value: 1 },
+      {
+        adapter: {
+          getItem: () => {
+            reads += 1;
+            return reads === 2
+              ? Promise.reject(new Error("first event failed"))
+              : { value: reads >= 3 ? 2 : 1 };
+          },
+          name: "queued-read-recovery",
+          pacer: false,
+          removeItem: () => undefined,
+          setItem: () => undefined,
+          subscribe: (listener) => {
+            notify = listener;
+            return () => {
+              notify = undefined;
+            };
+          },
+        },
+        onError: (error) => errors.push(error),
+        persist: { strategy: "entire" },
+        storeId: "queued-read-recovery",
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
+      },
+    );
+    await store.ready;
+    const key = "nusm:queued-read-recovery:entire";
+    notify?.({ key, type: "set" });
+    await tick();
+    notify?.({ key, type: "set" });
+    await tick();
+    expect(reads).toBe(3);
+    expect(store.state).toEqual({ value: 2 });
+    expect(errors).toHaveLength(1);
+    await store.dispose();
+  });
+
+  test("isolates a throwing error reporter during persistence flush", async () => {
+    const store = createNusmStore(
+      { value: 1 },
+      {
+        adapter: {
+          getItem: () => ({ value: 1 }),
+          name: "throwing-flush-reporter",
+          pacer: false,
+          removeItem: () => undefined,
+          setItem: () => Promise.reject(new Error("write failed")),
+        },
+        onError: () => {
+          throw new Error("reporter failed");
+        },
+        persist: { strategy: "entire" },
+        storeId: "throwing-flush-reporter",
+      },
+    );
+    await store.ready;
+    store.setState({ value: 2 });
+    await tick();
+    expect(store.state).toEqual({ value: 2 });
+    await store.dispose();
+  });
+
+  test("recovers the serialized flush queue after disposal failure", async () => {
+    const store = createNusmStore(
+      { value: 1 },
+      {
+        adapter: {
+          getItem: () => ({ value: 1 }),
+          name: "serialized-flush-failure",
+          pacer: { wait: 1_000 },
+          removeItem: () => undefined,
+          setItem: () => Promise.reject(new Error("dispose write failed")),
+        },
+        persist: { strategy: "entire" },
+        storeId: "serialized-flush-failure",
+      },
+    );
+    await store.ready;
+    store.setState({ value: 2 });
+    await expect(store.dispose()).rejects.toThrow("Store disposal failed");
+  });
+
+  test("hydrates array state through the published store entry", async () => {
+    const store = createNusmStore(
+      { items: [1] },
+      {
+        adapter: {
+          getItem: () => ({ items: [2, 3] }),
+          name: "array-hydration",
+          pacer: false,
+          removeItem: () => undefined,
+          setItem: () => undefined,
+        },
+        persist: { strategy: "entire" },
+        storeId: "array-hydration",
+      },
+    );
+    await store.ready;
+    expect(store.state).toEqual({ items: [2, 3] });
+  });
+
+  test("removes nested persisted slice values through the public command surface", async () => {
+    const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
+    const target = relay();
+    globalThis.__TANSTACK_EVENT_TARGET__ = target;
+    const key = "nusm:nested-remove:slice:settings";
+    const values = new Map<string, unknown>([
+      [key, { theme: { contrast: true, label: "dark" } }],
+    ]);
+    const settings: PersistSlice<{ settings: unknown }> = {
+      apply: (state, value) => ({ ...state, settings: value }),
+      key: "settings",
+      select: (state) => state.settings,
+    };
+    const store = createNusmStore(
+      { settings: { theme: { contrast: true, label: "dark" } } },
+      {
+        adapter: {
+          getItem: (storageKey) => values.get(storageKey) ?? null,
+          name: "nested-remove",
+          pacer: false,
+          removeItem: (storageKey) => values.delete(storageKey),
+          setItem: (storageKey, value) => values.set(storageKey, value),
+        },
+        devtools: true,
+        persist: { slices: [settings], strategy: "slices" },
+        storeId: "nested-remove",
+      },
+    );
+    await store.ready;
+    command(target, {
+      action: "remove_path",
+      commandId: "remove-nested",
+      instanceId: store.devtoolsInstanceId,
+      location: "persisted",
+      path: ["settings", "theme", "label"],
+      storeId: "nested-remove",
+    });
+    await tick();
+    await tick();
+    expect(values.get(key)).toEqual({ theme: { contrast: true } });
+    await store.dispose();
+    globalThis.__TANSTACK_EVENT_TARGET__ = originalTarget;
+  });
+
   test("keeps delayed set and remove notifications isolated while writes are in flight", async () => {
     const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
     const target = relay();
@@ -363,6 +539,16 @@ describe("nusm persistence edges", () => {
     });
     await tick();
     expect(snapshots.at(-1)?.synchronization).toBe("diverged");
+    command(target, {
+      action: "remove_path",
+      commandId: "remove-entire",
+      instanceId: store.devtoolsInstanceId,
+      location: "persisted",
+      path: ["count"],
+      storeId: "sync",
+    });
+    await tick();
+    await tick();
     globalThis.__TANSTACK_EVENT_TARGET__ = originalTarget;
   });
 
@@ -377,5 +563,105 @@ describe("nusm persistence edges", () => {
     }).toThrow();
     expect(store.hydration.overall).toBe("not_configured");
     expect(store.hydration).not.toBe(first);
+  });
+
+  test("reports devtools snapshot read failures and unknown synchronization", async () => {
+    const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
+    const target = relay();
+    globalThis.__TANSTACK_EVENT_TARGET__ = target;
+    const key = "nusm:snapshot-errors:entire";
+    const values = new Map<string, unknown>([[key, { value: 1 }]]);
+    let throwOnRead = false;
+    let returnUninspectable = false;
+    const events: Array<{ type: string }> = [];
+    target.addEventListener("nusm:event", (event) => {
+      const payload = (event as CustomEvent).detail.payload;
+      if (payload?.type) events.push(payload);
+    });
+    target.addEventListener("tanstack-connect", () =>
+      target.dispatchEvent(new CustomEvent("tanstack-connect-success")),
+    );
+    target.addEventListener("tanstack-dispatch-event", (event) => {
+      const detail = (event as CustomEvent).detail;
+      target.dispatchEvent(new CustomEvent(detail.type, { detail }));
+    });
+    const store = createNusmStore(
+      { value: 1 },
+      {
+        adapter: {
+          getItem: (storageKey) => {
+            if (throwOnRead) throw new Error("snapshot denied");
+            if (returnUninspectable)
+              return new Proxy(
+                { value: 1 },
+                {
+                  ownKeys: () => {
+                    throw new Error("snapshot opaque");
+                  },
+                },
+              );
+            return values.get(storageKey) ?? null;
+          },
+          name: "snapshot-errors",
+          pacer: false,
+          removeItem: (storageKey) => values.delete(storageKey),
+          setItem: (storageKey, value) => values.set(storageKey, value),
+        },
+        devtools: true,
+        persist: { strategy: "entire" },
+        storeId: "snapshot-errors",
+      },
+    );
+    await store.ready;
+    throwOnRead = true;
+    target.dispatchEvent(
+      new CustomEvent("nusm:command", {
+        detail: {
+          payload: {
+            action: "refresh",
+            commandId: "snapshot-refresh",
+            instanceId: store.devtoolsInstanceId,
+            storeId: "snapshot-errors",
+          },
+        },
+      }),
+    );
+    await tick();
+    expect(events.some(({ type }) => type === "devtools_snapshot_error")).toBe(
+      true,
+    );
+    throwOnRead = false;
+    returnUninspectable = true;
+    store.setState({ value: 2 });
+    await tick();
+    await store.dispose();
+    globalThis.__TANSTACK_EVENT_TARGET__ = originalTarget;
+  });
+
+  test("contains synchronization disposal reporter failures", async () => {
+    const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
+    const target = relay();
+    globalThis.__TANSTACK_EVENT_TARGET__ = target;
+    const store = createNusmStore(
+      { value: 1 },
+      {
+        devtools: true,
+        storeId: "dispose-reporting",
+        sync: {
+          source: { publish: () => undefined, start: () => undefined },
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
+      },
+    );
+    await store.ready;
+    Object.defineProperty(target, "dispatchEvent", {
+      configurable: true,
+      value: () => {
+        throw new Error("disposal reporter denied");
+      },
+    });
+    await store.dispose();
+    globalThis.__TANSTACK_EVENT_TARGET__ = originalTarget;
   });
 });

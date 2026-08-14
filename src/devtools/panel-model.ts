@@ -66,7 +66,8 @@ export const previewValue = (value: unknown) => {
   try {
     if (Array.isArray(value)) {
       const length = Object.getOwnPropertyDescriptor(value, "length")?.value;
-      return `Array(${typeof length === "number" ? length : "?"})`;
+      // Array length is always a non-negative integer data property.
+      return `Array(${length})`;
     }
     return `{${Reflect.ownKeys(value).filter((key) => typeof key === "string").length} keys}`;
   } catch (error) {

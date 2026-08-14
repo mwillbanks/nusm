@@ -40,6 +40,26 @@ describe("devtools serialization", () => {
     ]) {
       expect(isRoundTrippableForDevtools(value)).toBe(false);
     }
+    const throwingPrototype = new Proxy(
+      {},
+      {
+        getPrototypeOf: () => {
+          throw new Error("prototype denied");
+        },
+      },
+    );
+    expect(isRoundTrippableForDevtools(throwingPrototype)).toBe(false);
+    const nonErrorPrototype = new Proxy(
+      {},
+      {
+        getPrototypeOf: () => {
+          throw "prototype denied";
+        },
+      },
+    );
+    expect(isRoundTrippableForDevtools(nonErrorPrototype)).toBe(false);
+    const sparse = new Array(2);
+    expect(isRoundTrippableForDevtools(sparse)).toBe(false);
   });
 
   test("formats bigint, circular, undefined, and throwing proxies safely", () => {
@@ -59,5 +79,38 @@ describe("devtools serialization", () => {
     expect(stringifyForDevtools(throwing)).toContain(
       "Uninspectable: no inspection",
     );
+    const nonError = new Proxy(
+      {},
+      {
+        ownKeys: () => {
+          throw "no inspection";
+        },
+      },
+    );
+    expect(stringifyForDevtools(nonError)).toContain(
+      "Uninspectable: no inspection",
+    );
+    const descriptorDenied = new Proxy(
+      { value: 1 },
+      {
+        getOwnPropertyDescriptor: () => {
+          throw new Error("descriptor denied");
+        },
+      },
+    );
+    expect(stringifyForDevtools(descriptorDenied)).toContain(
+      "Uninspectable: descriptor denied",
+    );
+    const stringify = JSON.stringify;
+    JSON.stringify = (() => {
+      throw new Error("serializer denied");
+    }) as typeof JSON.stringify;
+    try {
+      expect(stringifyForDevtools({ value: 1 })).toBe(
+        "[Unserializable: serializer denied]",
+      );
+    } finally {
+      JSON.stringify = stringify;
+    }
   });
 });

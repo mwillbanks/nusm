@@ -68,6 +68,7 @@ describe("devtools panel workflows", () => {
     fireEvent.click(view.getByRole("button", { name: /workspace/i }));
     expect(view.getByText("Synchronization")).toBeInTheDocument();
     expect(view.getAllByText("active").length).toBeGreaterThan(0);
+    fireEvent.click(view.getByRole("button", { name: "Inspect memory" }));
     fireEvent.click(view.getByRole("tab", { name: "memory" }));
     act(() => {
       fireEvent.input(view.getByLabelText("Search keys and values"), {
@@ -86,6 +87,12 @@ describe("devtools panel workflows", () => {
     });
     expect(copied).toEqual(['"Ada"']);
     (() => {
+      const closeInspector = view.container.querySelector(
+        '[aria-label="Close value inspector"]',
+      );
+      expect(closeInspector).not.toBeNull();
+      fireEvent.click(closeInspector as HTMLElement);
+      fireEvent.click(view.getByText("name"));
       fireEvent.click(view.getByRole("button", { name: "Remove" }));
       fireEvent.click(view.getByRole("button", { name: "Confirm remove" }));
     })();
@@ -96,6 +103,46 @@ describe("devtools panel workflows", () => {
 
     fireEvent.click(view.getByRole("button", { name: "Edit raw JSON" }));
     expect(view.getByRole("dialog", { name: "raw value" })).toBeInTheDocument();
+    const dialog = view.getByRole("dialog", { name: "raw value" });
+    const focusables = dialog.querySelectorAll<HTMLElement>(
+      'input, textarea, button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    last?.focus();
+    fireEvent.keyDown(dialog, { key: "Tab" });
+    expect(document.activeElement).toBe(first);
+    first?.focus();
+    fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
+    fireEvent.input(view.getByLabelText("JSON value"), {
+      target: { value: '{"profile":{"name":"Grace"}}' },
+    });
+    fireEvent.click(view.getByRole("button", { name: "Apply change" }));
+    expect(commands.at(-1)).toMatchObject({ action: "replace_memory" });
+    await dispatch(target, "commandResult", {
+      action: "replace_memory",
+      commandId: commands.at(-1)?.commandId,
+      instanceId: commands.at(-1)?.instanceId,
+      status: "success",
+      storeId: commands.at(-1)?.storeId,
+    });
+    fireEvent.click(view.getByRole("tab", { name: "indexdb" }));
+    fireEvent.click(view.getByRole("button", { name: "Edit raw JSON" }));
+    fireEvent.input(view.getByLabelText("JSON value"), {
+      target: { value: '{"profile":{"name":"Taylor"}}' },
+    });
+    fireEvent.click(view.getByRole("button", { name: "Apply change" }));
+    expect(commands.at(-1)).toMatchObject({ action: "replace_persisted" });
+    await dispatch(target, "commandResult", {
+      action: "replace_persisted",
+      commandId: commands.at(-1)?.commandId,
+      instanceId: commands.at(-1)?.instanceId,
+      status: "success",
+      storeId: commands.at(-1)?.storeId,
+    });
+    fireEvent.click(view.getByRole("tab", { name: "memory" }));
+    fireEvent.click(view.getByRole("button", { name: "Edit raw JSON" }));
     fireEvent.click(view.getByRole("button", { name: "Reset memory" }));
     await (async () => {
       await dispatch(target, "commandResult", {

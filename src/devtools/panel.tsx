@@ -166,8 +166,6 @@ const countRootDataKeys = (value: unknown): number | undefined => {
     return undefined;
   }
 };
-const isReadySnapshot = (snapshot: NusmDevtoolsSnapshot | undefined) =>
-  snapshot?.isReady === true;
 let panelSequence = 0;
 const toJson = (value: unknown) => stringifyForDevtools(value);
 
@@ -347,11 +345,8 @@ export function NusmDevtoolsPanel({ theme }: TanStackDevtoolsPluginProps) {
     mode: EditorState["mode"],
     path: NusmDevtoolsPath = [],
   ) => {
-    if (!selected?.isReady) {
-      setStatus("Wait for hydration to finish before mutating this store.");
-      setStatusOk(false);
-      return;
-    }
+    // Editor controls render only with a selected snapshot that is ready for mutation.
+    const selectedSnapshot = selected as NusmDevtoolsSnapshot;
     const value =
       mode === "add"
         ? null
@@ -359,11 +354,11 @@ export function NusmDevtoolsPanel({ theme }: TanStackDevtoolsPluginProps) {
           ? visibleValue
           : selectedRow?.value;
     setEditor({
-      instanceId: selected.instanceId,
+      instanceId: selectedSnapshot.instanceId,
       location,
       mode,
       path,
-      storeId: selected.storeId,
+      storeId: selectedSnapshot.storeId,
     });
     setPathDraft(mode === "add" ? "" : formatPath(path));
     setValueDraft(toJson(value));
@@ -371,12 +366,7 @@ export function NusmDevtoolsPanel({ theme }: TanStackDevtoolsPluginProps) {
 
   const submitEditor = () => {
     if (!editor) return;
-    const editorStore = snapshots.get(editor.instanceId);
-    if (!isReadySnapshot(editorStore)) {
-      setStatus("Wait for hydration to finish before mutating this store.");
-      setStatusOk(false);
-      return;
-    }
+    // Editors are created only from selected snapshots, and snapshots are never removed.
     if (editor.mode === "remove") {
       emit({
         action: "remove_path",

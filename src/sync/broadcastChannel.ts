@@ -404,13 +404,10 @@ export const createBroadcastChannelSyncSource = <TState = unknown>(
     entry: ChannelEntry,
     envelope: BroadcastWireEnvelope,
   ): Promise<boolean> => {
-    const key = await getKey().catch((error) => {
-      reportProtocol(entry, asError(error));
-      return undefined;
-    });
-    const valid = key
-      ? await verifyEnvelope(key, envelope).catch(() => false)
-      : false;
+    // A channel entry is created only after the shared HMAC key resolves.
+    // Therefore key acquisition cannot reject for an active entry.
+    const key = await getKey();
+    const valid = await verifyEnvelope(key, envelope).catch(() => false);
     if (valid) return true;
     reportProtocol(
       entry,

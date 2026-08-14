@@ -58,4 +58,38 @@ describe("panel model accessibility", () => {
       globalThis.__TANSTACK_EVENT_TARGET__ = originalTarget;
     })();
   });
+
+  test("reports unknown root key counts when inspection traps throw", () => {
+    const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
+    const target = relay();
+    globalThis.__TANSTACK_EVENT_TARGET__ = target;
+    const memory = new Proxy(
+      {},
+      {
+        ownKeys: () => {
+          throw new Error("keys denied");
+        },
+      },
+    );
+    const view = render(<NusmDevtoolsPanel devtoolsOpen theme="dark" />);
+    act(() =>
+      target.dispatchEvent(
+        new CustomEvent("nusm:snapshot", {
+          detail: {
+            payload: {
+              hydration: { byKey: {}, overall: "hydrated" },
+              instanceId: "throwing-root-instance",
+              isReady: true,
+              memory,
+              storeId: "throwing-root",
+              synchronization: "not_applicable",
+            },
+          },
+        }),
+      ),
+    );
+    expect(view.getByText("Unknown memory keys")).toBeInTheDocument();
+    cleanup();
+    globalThis.__TANSTACK_EVENT_TARGET__ = originalTarget;
+  });
 });

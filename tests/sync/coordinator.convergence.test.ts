@@ -923,6 +923,8 @@ describe("synchronization coordinator convergence", () => {
     const bus = createBus();
     let attempts = 0;
     let applied: unknown;
+    let snapshotSenderId = "";
+    let normalized: unknown;
     const leader = createNusmSyncCoordinator({
       onEvent: () => undefined,
       onSnapshotRequest: () => ({ value: 42 }),
@@ -932,8 +934,12 @@ describe("synchronization coordinator convergence", () => {
     await wait(5);
     const follower = createNusmSyncCoordinator({
       onEvent: async (event) => {
-        if (event.kind !== "snapshot") return;
+        if (event.kind !== "snapshot") {
+          normalized = event.state;
+          return;
+        }
         attempts += 1;
+        snapshotSenderId = event.revision?.senderId ?? snapshotSenderId;
         if (attempts === 1) throw new Error("transient apply failure");
         applied = event.state;
       },
@@ -949,6 +955,16 @@ describe("synchronization coordinator convergence", () => {
     await wait(100);
     expect(attempts).toBeGreaterThanOrEqual(2);
     expect(applied).toEqual({ value: 42 });
+    await follower.enqueue({
+      eventId: "normalized-after-snapshot",
+      kind: "update",
+      revision: { counter: 1, senderId: snapshotSenderId },
+      sourceId: snapshotSenderId,
+      state: { value: 43 },
+      storeId: "apply-retry",
+    });
+    await wait(5);
+    expect(normalized).toEqual({ value: 43 });
     await leader.dispose();
     await follower.dispose();
   });

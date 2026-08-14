@@ -169,6 +169,39 @@ describe.serial("authenticated BroadcastChannel synchronization", () => {
     await peer.dispose?.({ storeId: "pending-dispose" });
   });
 
+  test("disposes a channel created concurrently with its first listener", async () => {
+    const source = createBroadcastChannelSyncSource({
+      key: key(),
+      namespace: "creation-dispose-race",
+    });
+    const originalImport = crypto.subtle.importKey.bind(crypto.subtle);
+    let releaseImport: (() => void) | undefined;
+    Object.defineProperty(crypto.subtle, "importKey", {
+      configurable: true,
+      value: (...args: Parameters<SubtleCrypto["importKey"]>) =>
+        new Promise<CryptoKey>((resolve, reject) => {
+          releaseImport = () => {
+            originalImport(...args).then(resolve, reject);
+          };
+        }),
+    });
+    try {
+      const started = source.start(() => undefined, {
+        storeId: "creation-dispose-race",
+      });
+      await Promise.resolve();
+      const disposed = source.dispose?.();
+      releaseImport?.();
+      await expect(started).rejects.toThrow("disposed");
+      await disposed;
+    } finally {
+      Object.defineProperty(crypto.subtle, "importKey", {
+        configurable: true,
+        value: originalImport,
+      });
+    }
+  });
+
   test("delivers authenticated arrivals in broadcast order", async () => {
     const source = createBroadcastChannelSyncSource({
       key: key(),
@@ -215,6 +248,77 @@ describe.serial("authenticated BroadcastChannel synchronization", () => {
     expect(received).toEqual([1, 2]);
     await source.dispose?.({ storeId: "ordered-arrivals" });
     await sender.dispose?.({ storeId: "ordered-arrivals" });
+  });
+
+  test("isolates a rejected signature verification and recovers on later messages", async () => {
+    const source = createBroadcastChannelSyncSource({
+      key: key(),
+      namespace: "verify-recovery",
+    });
+    const sender = createBroadcastChannelSyncSource({
+      key: key(),
+      namespace: "verify-recovery",
+    });
+    const received: number[] = [];
+    await source.start(
+      (event) => received.push((event.state as { value: number }).value),
+      { storeId: "verify-recovery" },
+    );
+    await sender.start(() => undefined, { storeId: "verify-recovery" });
+    const originalVerify = crypto.subtle.verify.bind(crypto.subtle);
+    let verifyCalls = 0;
+    crypto.subtle.verify = async (...args) => {
+      if (verifyCalls++ === 0) throw new Error("verification unavailable");
+      return originalVerify(...args);
+    };
+    try {
+      await sender.publish({
+        eventId: "rejected",
+        kind: "update",
+        sourceId: "sender",
+        state: { value: 1 },
+        storeId: "verify-recovery",
+      });
+      await sender.publish({
+        eventId: "recovered",
+        kind: "update",
+        sourceId: "sender",
+        state: { value: 2 },
+        storeId: "verify-recovery",
+      });
+      await wait();
+    } finally {
+      crypto.subtle.verify = originalVerify;
+    }
+    expect(received).toEqual([2]);
+    await source.dispose?.({ storeId: "verify-recovery" });
+    await sender.dispose?.({ storeId: "verify-recovery" });
+  });
+
+  test("contextual disposal settles a rejected pending channel creation", async () => {
+    const originalImport = crypto.subtle.importKey.bind(crypto.subtle);
+    Object.defineProperty(crypto.subtle, "importKey", {
+      configurable: true,
+      value: (..._args: Parameters<SubtleCrypto["importKey"]>) =>
+        Promise.reject(new Error("key import denied")),
+    });
+    const source = createBroadcastChannelSyncSource({
+      key: key(),
+      namespace: "pending-rejection",
+    });
+    try {
+      const started = source.start(() => undefined, {
+        storeId: "pending-rejection",
+      });
+      await Promise.resolve();
+      await source.dispose?.({ storeId: "pending-rejection" });
+      await expect(started).rejects.toThrow("key import denied");
+    } finally {
+      Object.defineProperty(crypto.subtle, "importKey", {
+        configurable: true,
+        value: originalImport,
+      });
+    }
   });
 
   test("shares authenticated SuperJSON values between identified stores", async () => {
@@ -321,6 +425,71 @@ describe.serial("authenticated BroadcastChannel synchronization", () => {
     await source.dispose?.({ storeId: "crypto-key" });
   });
 
+  test("uses Web Crypto random bytes when randomUUID is unavailable", async () => {
+    const randomUuid = crypto.randomUUID;
+    const randomValues = crypto.getRandomValues.bind(crypto);
+    Object.defineProperty(crypto, "randomUUID", {
+      configurable: true,
+      value: undefined,
+    });
+    Object.defineProperty(crypto, "getRandomValues", {
+      configurable: true,
+      value: <T extends ArrayBufferView | null>(array: T) => {
+        if (array instanceof Uint8Array) array.fill(7);
+        return array;
+      },
+    });
+    try {
+      const source = createBroadcastChannelSyncSource({
+        key: key(),
+        namespace: "random-bytes",
+      });
+      await source.start(() => undefined, { storeId: "random-bytes" });
+      expect(source.sourceId).toBe("07070707070707070707070707070707");
+      await source.dispose?.({ storeId: "random-bytes" });
+    } finally {
+      Object.defineProperty(crypto, "randomUUID", {
+        configurable: true,
+        value: randomUuid,
+      });
+      Object.defineProperty(crypto, "getRandomValues", {
+        configurable: true,
+        value: randomValues,
+      });
+    }
+  });
+
+  test("rejects synchronization when Web Crypto identity generation is unavailable", async () => {
+    const randomUuid = crypto.randomUUID;
+    const randomValues = crypto.getRandomValues;
+    Object.defineProperty(crypto, "randomUUID", {
+      configurable: true,
+      value: undefined,
+    });
+    Object.defineProperty(crypto, "getRandomValues", {
+      configurable: true,
+      value: undefined,
+    });
+    try {
+      const source = createBroadcastChannelSyncSource({
+        key: key(),
+        namespace: "no-identity",
+      });
+      await expect(
+        source.start(() => undefined, { storeId: "no-identity" }),
+      ).rejects.toThrow("Web Crypto is required");
+    } finally {
+      Object.defineProperty(crypto, "randomUUID", {
+        configurable: true,
+        value: randomUuid,
+      });
+      Object.defineProperty(crypto, "getRandomValues", {
+        configurable: true,
+        value: randomValues,
+      });
+    }
+  });
+
   test("rejects tampered payloads and preserves valid updates", async () => {
     const reported: Error[] = [];
     const left = createBroadcastChannelSyncSource({
@@ -402,6 +571,59 @@ describe.serial("authenticated BroadcastChannel synchronization", () => {
     expect(reported.length).toBeGreaterThan(0);
     await disposeSource(source, "tamper-header");
     await disposeSource(receiver, "tamper-header");
+  });
+
+  test("isolates hostile envelope access and recovers the inbound queue", async () => {
+    const reported: Error[] = [];
+    const sender = createBroadcastChannelSyncSource({
+      key: key(),
+      namespace: "hostile-envelope",
+    });
+    const receiver = createBroadcastChannelSyncSource({
+      key: key(),
+      namespace: "hostile-envelope",
+    });
+    const received: number[] = [];
+    await sender.start(() => undefined, { storeId: "hostile-envelope" });
+    await receiver.start(
+      (event) => received.push((event.state as { value: number }).value),
+      {
+        onError: (error) => reported.push(error as Error),
+        storeId: "hostile-envelope",
+      },
+    );
+    await sender.publish({
+      eventId: "hostile-seed",
+      kind: "update",
+      sourceId: "sender",
+      state: { value: 1 },
+      storeId: "hostile-envelope",
+    });
+    await wait();
+    const raw = latestMessage();
+    const hostile = { ...(raw.message as Record<string, unknown>) };
+    let versionReads = 0;
+    Object.defineProperty(hostile, "version", {
+      configurable: true,
+      enumerable: true,
+      get: () => {
+        if (versionReads++ === 0) return 1;
+        throw new Error("hostile version access");
+      },
+    });
+    TestBroadcastChannel.postRaw(raw.name, hostile);
+    await sender.publish({
+      eventId: "hostile-recovery",
+      kind: "update",
+      sourceId: "sender",
+      state: { value: 2 },
+      storeId: "hostile-envelope",
+    });
+    await wait();
+    expect(received).toEqual([1, 2]);
+    expect(reported.length).toBeGreaterThan(0);
+    await disposeSource(sender, "hostile-envelope");
+    await disposeSource(receiver, "hostile-envelope");
   });
 
   test("rejects an authenticated envelope with an invalid payload", async () => {

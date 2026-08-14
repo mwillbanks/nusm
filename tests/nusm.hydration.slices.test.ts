@@ -47,4 +47,35 @@ describe("nusm hydration slices", () => {
     expect(values.has("nusm:cross-slice-isolation:slice:b")).toBeFalse();
     expect(store.hydration.overall).toBe("error");
   });
+
+  test("records missing-slice baseline write failures", async () => {
+    type State = { prefs: { theme: string } };
+    const adapter: NusmAdapter = {
+      getItem: () => null,
+      name: "baseline-failure",
+      pacer: false,
+      removeItem: () => undefined,
+      setItem: () => {
+        throw new Error("baseline write failed");
+      },
+    };
+    const slice: PersistSlice<State> = {
+      apply: (state, value) => ({ ...state, prefs: value as State["prefs"] }),
+      key: "prefs",
+      select: (state) => state.prefs,
+    };
+    const errors: unknown[] = [];
+    const store = createNusmStore<State>(
+      { prefs: { theme: "light" } },
+      {
+        adapter,
+        onError: (error) => errors.push(error),
+        persist: { slices: [slice], strategy: "slices" },
+        storeId: "baseline-failure",
+      },
+    );
+    await store.ready;
+    expect(store.hydration.byKey.prefs).toBe("error");
+    expect(errors).toHaveLength(1);
+  });
 });

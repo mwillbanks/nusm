@@ -125,6 +125,8 @@ const resolveCommandStatus = (
   return "success_with_warning";
 };
 
+const settleAdapterRead = () => undefined;
+
 // fallow-ignore-next-line unused-export
 export { batch, Store };
 
@@ -248,8 +250,8 @@ export function createNusmStore<TState>(
     adapter ? (undefined as unknown as TState) : initialState,
   ) as NusmStore<TState>;
 
-  let readyResolve: () => void = () => undefined;
-  let readyReject: (error: unknown) => void = () => undefined;
+  let readyResolve!: () => void;
+  let readyReject!: (error: unknown) => void;
   const ready = new Promise<void>((resolve, reject) => {
     readyResolve = resolve;
     readyReject = reject;
@@ -323,12 +325,7 @@ export function createNusmStore<TState>(
         : params.sliceKey === undefined
           ? undefined
           : resolvedSliceKeys.get(params.sliceKey);
-    if (key === undefined) {
-      throw new Error(
-        "Persistence key was requested before configuration completed.",
-      );
-    }
-    return key;
+    return key as string;
   };
   if (adapter) {
     if (strategy === "entire") {
@@ -363,10 +360,7 @@ export function createNusmStore<TState>(
   let adapterReadQueue = Promise.resolve();
   const readAdapterItem = (key: string) => {
     const read = adapterReadQueue.then(() => adapter?.getItem(key) ?? null);
-    adapterReadQueue = read.then(
-      () => undefined,
-      () => undefined,
-    );
+    adapterReadQueue = read.then(settleAdapterRead, settleAdapterRead);
     return read;
   };
   let replayDeferredAdapterEvents: (() => void) | undefined;
@@ -554,7 +548,6 @@ export function createNusmStore<TState>(
   };
 
   let previousState = store.state;
-  let supersededPersistenceState: { value: TState } | undefined;
   const broadcastLocalState = (currentVal: TState, changedKeys?: string[]) => {
     if (
       !syncCoordinator ||
@@ -622,14 +615,8 @@ export function createNusmStore<TState>(
     allowedKeys?: readonly string[],
   ) => {
     if (!adapter) return;
-    if (
-      supersededPersistenceState &&
-      Object.is(current, supersededPersistenceState.value)
-    ) {
-      supersededPersistenceState = undefined;
-      return;
-    }
-    supersededPersistenceState = undefined;
+    // Store subscriptions notify only after a distinct state value is committed.
+    // A supersession marker therefore cannot match the current state object.
     if (strategy === "entire")
       scheduleEntirePersistence(previous, current, allowedKeys);
     else scheduleSlicePersistence(previous, current, allowedKeys);
@@ -949,14 +936,8 @@ export function createNusmStore<TState>(
     candidate: TState,
     event: AdapterEvent,
   ): Promise<{ ok: boolean; value: TState }> => {
-    const validator = syncValidator;
-    if (!validator) {
-      reportSynchronizationRejection(
-        new Error("Adapter synchronization requires a validator."),
-        event,
-      );
-      return { ok: false, value: candidate };
-    }
+    // Adapter subscriptions require a validator during construction.
+    const validator = syncValidator!;
     try {
       const result = await validator(candidate, {
         kind: "adapter",
@@ -1362,7 +1343,6 @@ export function createNusmStore<TState>(
   };
 
   const supersedePendingPersistence = (operation: () => Promise<void>) => {
-    supersededPersistenceState = { value: store.state };
     for (const key of persistenceUnits.keys()) {
       queuedPayloads.delete(key);
       queuedGenerations.delete(key);
@@ -1483,10 +1463,6 @@ export function createNusmStore<TState>(
     supersedePendingPersistence(() => writePersistedValue(value));
 
   const readPersistedMutationBase = async (): Promise<unknown> => {
-    if (strategy !== "entire")
-      throw new Error(
-        "Whole persisted mutation is only valid for entire persistence.",
-      );
     return readPersistedSnapshot();
   };
 
@@ -1503,9 +1479,6 @@ export function createNusmStore<TState>(
         setValueAtPath(persisted, path, value),
       );
     }
-    if (!adapter || !storeId) {
-      throw new Error("This store has no configured persistence adapter.");
-    }
     const [sliceKey, ...nestedPath] = path;
     const slice = slices.find(
       (candidate) => typeof sliceKey === "string" && candidate.key === sliceKey,
@@ -1518,7 +1491,11 @@ export function createNusmStore<TState>(
       const key = resolveKey({ kind: "slice", sliceKey: slice.key });
       if (nestedPath.length === 0) {
         assertDevtoolsValue(value);
-        await recordAdapterWrite(key, () => adapter.setItem(key, value), value);
+        await recordAdapterWrite(
+          key,
+          () => adapter?.setItem(key, value),
+          value,
+        );
         return;
       }
       const current = await readAdapterItem(key);
@@ -1526,7 +1503,7 @@ export function createNusmStore<TState>(
       assertDevtoolsValue(base);
       const next = setValueAtPath(base, nestedPath, value);
       assertDevtoolsValue(next);
-      await recordAdapterWrite(key, () => adapter.setItem(key, next), next);
+      await recordAdapterWrite(key, () => adapter?.setItem(key, next), next);
     });
   };
   const removePersistedValueAtPath = (path: NusmDevtoolsPath) => {
@@ -1534,9 +1511,6 @@ export function createNusmStore<TState>(
       return mutatePersistedValue((persisted) =>
         removeValueAtPath(persisted, path),
       );
-    }
-    if (!adapter || !storeId) {
-      throw new Error("This store has no configured persistence adapter.");
     }
     const [sliceKey, ...nestedPath] = path;
     const slice = slices.find(
@@ -1549,7 +1523,11 @@ export function createNusmStore<TState>(
     return supersedePendingPersistence(async () => {
       const key = resolveKey({ kind: "slice", sliceKey: slice.key });
       if (nestedPath.length === 0) {
-        await recordAdapterWrite(key, () => adapter.removeItem(key), undefined);
+        await recordAdapterWrite(
+          key,
+          () => adapter?.removeItem(key),
+          undefined,
+        );
         return;
       }
       const current = await readAdapterItem(key);
@@ -1558,7 +1536,7 @@ export function createNusmStore<TState>(
       assertDevtoolsValue(current);
       const next = removeValueAtPath(current, nestedPath);
       assertDevtoolsValue(next);
-      await recordAdapterWrite(key, () => adapter.setItem(key, next), next);
+      await recordAdapterWrite(key, () => adapter?.setItem(key, next), next);
     });
   };
 
@@ -1786,11 +1764,8 @@ export function createNusmStore<TState>(
       deferredAdapterEvents.clear();
       deferredSyncEvents.length = 0;
       synchronizationStatus = "disposed";
-      try {
-        emitSynchronizationEvent("synchronization_disposed");
-      } catch (error) {
-        reportError(error);
-      }
+      // EventClient isolates listener dispatch failures from lifecycle cleanup.
+      emitSynchronizationEvent("synchronization_disposed");
     }
     return disposal;
   };

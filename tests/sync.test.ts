@@ -166,6 +166,73 @@ describe("synchronization communication", () => {
     await store.dispose();
   });
 
+  test("reports adapter validator failures without mutating state", async () => {
+    const memory = createMemoryAdapter({ withSubscribe: true });
+    const errors: unknown[] = [];
+    const store = createNusmStore(
+      { value: 0 },
+      {
+        adapter: memory.adapter,
+        onError: (error) => errors.push(error),
+        persist: { strategy: "entire" },
+        storeId: "adapter-validator-error",
+        sync: {
+          validator: () => {
+            throw new Error("adapter validator failed");
+          },
+        },
+      },
+    );
+    await store.ready;
+    const key = "nusm:adapter-validator-error:entire";
+    memory.store.set(key, { value: 1 });
+    memory.emit({ key, type: "set" });
+    await settle();
+    expect(store.state).toEqual({ value: 0 });
+    expect(errors).toContainEqual(new Error("adapter validator failed"));
+    await store.dispose();
+  });
+
+  test("emits an unavailable status when a synchronization source cannot start", async () => {
+    const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
+    const target = new EventTarget();
+    target.addEventListener("tanstack-connect", () =>
+      target.dispatchEvent(new CustomEvent("tanstack-connect-success")),
+    );
+    target.addEventListener("tanstack-dispatch-event", (event) => {
+      const detail = (event as CustomEvent).detail;
+      target.dispatchEvent(new CustomEvent(detail.type, { detail }));
+    });
+    globalThis.__TANSTACK_EVENT_TARGET__ = target;
+    const events: Array<{ type: string }> = [];
+    target.addEventListener("nusm:event", (event) => {
+      const payload = (event as CustomEvent).detail.payload;
+      if (payload?.type) events.push(payload);
+    });
+    const store = createNusmStore(
+      { value: 0 },
+      {
+        devtools: true,
+        storeId: "unavailable-source",
+        sync: {
+          source: {
+            publish: () => undefined,
+            start: () => {
+              throw new Error("source unavailable");
+            },
+          },
+          validator: () => true,
+        },
+      },
+    );
+    await store.ready;
+    expect(
+      events.some(({ type }) => type === "synchronization_unavailable"),
+    ).toBe(true);
+    await store.dispose();
+    globalThis.__TANSTACK_EVENT_TARGET__ = originalTarget;
+  });
+
   test("requires an explicit storeId for persistence and synchronization", () => {
     const { adapter } = createMemoryAdapter();
     const source = createSource();

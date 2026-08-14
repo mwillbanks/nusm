@@ -239,11 +239,17 @@ export const createNusmSyncCoordinator = <TState>(
   >();
   const snapshotProgress = new Set<string>();
   const rejectedCandidates = new Set<string>();
-  const pruneOldest = <T>(entries: Map<string, T>, limit: number) => {
+  const pruneOldest = <T>(
+    entries: Map<string, T> | Set<string>,
+    limit: number,
+  ) => {
     while (entries.size > limit) {
-      const oldest = entries.keys().next().value;
+      const oldest =
+        entries instanceof Map
+          ? entries.keys().next().value
+          : entries.values().next().value;
       if (!oldest) return;
-      entries.delete(oldest);
+      entries.delete(oldest as string);
     }
   };
   const expirePeers = () => {
@@ -265,11 +271,7 @@ export const createNusmSyncCoordinator = <TState>(
   };
   const rememberAppliedSnapshot = (id: string) => {
     appliedSnapshots.add(id);
-    while (appliedSnapshots.size > MAX_TRACKED_PROTOCOL_IDS) {
-      const oldest = appliedSnapshots.values().next().value;
-      if (!oldest) return;
-      appliedSnapshots.delete(oldest);
-    }
+    pruneOldest(appliedSnapshots, MAX_TRACKED_PROTOCOL_IDS);
   };
   const validRevisionShape = (event: NusmSyncEvent<TState>) => {
     const revision = event.revision;
@@ -350,11 +352,7 @@ export const createNusmSyncCoordinator = <TState>(
     commitRevision(revision);
     if (event.kind === "snapshot") {
       snapshotProgress.add(revision.senderId);
-      while (snapshotProgress.size > MAX_TRACKED_PROTOCOL_IDS) {
-        const oldest = snapshotProgress.values().next().value;
-        if (!oldest) break;
-        snapshotProgress.delete(oldest);
-      }
+      pruneOldest(snapshotProgress, MAX_TRACKED_PROTOCOL_IDS);
     }
   };
 
@@ -859,10 +857,10 @@ export const createNusmSyncCoordinator = <TState>(
   const startDiscovery = () => {
     if (disposed || sources.length === 0 || discoveryTimer) return;
     let discoveryAttempt = 0;
-    const hasHydratingPeer = () =>
-      [...peers.values()].some((peer) => peer.phase === "hydrating");
     const mayCompleteDiscovery = () =>
-      !earlierHydratingPeer() && !hasHydratingPeer();
+      // A hydrating peer is either earlier (caught by earlierHydratingPeer)
+      // or later (the local leader short-circuits discovery before this check).
+      !earlierHydratingPeer();
     const scheduleDiscovery = (discover: () => void) => {
       const delay =
         discoveryAttempt < 4 ? [50, 100, 200, 400][discoveryAttempt++] : 5000;
@@ -965,6 +963,10 @@ export const createNusmSyncCoordinator = <TState>(
   };
   const localRevisionBase = (): NusmSyncRevision => {
     const knownLocalRevision = revisionProgress.get(localId);
+    const knownLocalCounter =
+      knownLocalRevision?.epoch === revisionEpoch
+        ? knownLocalRevision.counter
+        : 0;
     return converged
       ? {
           counter:
@@ -977,13 +979,7 @@ export const createNusmSyncCoordinator = <TState>(
       : {
           counter:
             provisionalEpoch === revisionEpoch
-              ? Math.max(
-                  provisionalCounter,
-                  revisionCounter,
-                  knownLocalRevision?.epoch === revisionEpoch
-                    ? knownLocalRevision.counter
-                    : 0,
-                )
+              ? Math.max(provisionalCounter, revisionCounter, knownLocalCounter)
               : provisionalCounter,
           epoch: provisionalEpoch,
           senderId: localId,

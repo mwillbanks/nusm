@@ -7,6 +7,7 @@ import {
   flattenValue,
   formatPath,
   parsePath,
+  previewValue,
 } from "../../src/devtools/panel-model";
 import { stringifyForDevtools } from "../../src/devtools/serialize";
 
@@ -83,6 +84,29 @@ describe("panel interactions", () => {
       },
     );
     expect(flattenValue(hostile)[0]?.preview).toContain("Uninspectable");
+    const nonErrorHostile = new Proxy(
+      {},
+      {
+        ownKeys: () => {
+          throw "proxy inspected";
+        },
+      },
+    );
+    expect(flattenValue(nonErrorHostile)[0]?.preview).toContain(
+      "Uninspectable",
+    );
+    expect(
+      previewValue(
+        new Proxy(
+          {},
+          {
+            ownKeys: () => {
+              throw new Error("preview denied");
+            },
+          },
+        ),
+      ),
+    ).toContain("Uninspectable: preview denied");
 
     let toJsonCalls = 0;
     const withToJson = {
@@ -291,14 +315,25 @@ describe("panel interactions", () => {
       ["nusm:atomic:slice:session", { draft: "saved" }],
     ]);
     let failSessionWrite = false;
+    let failPrefsRollback = false;
     const adapter: NusmAdapter = {
       getItem: (key) => data.get(key) ?? null,
       name: "atomic",
       pacer: false,
-      removeItem: (key) => data.delete(key),
+      removeItem: (key) => {
+        if (failPrefsRollback && key.endsWith(":prefs"))
+          throw new Error("prefs rollback failed");
+        data.delete(key);
+      },
       setItem: (key, value) => {
         if (failSessionWrite && key.endsWith(":session"))
           throw new Error("session write failed");
+        if (
+          failPrefsRollback &&
+          key.endsWith(":prefs") &&
+          (value as State["prefs"]).theme === "light"
+        )
+          throw new Error("prefs rollback failed");
         data.set(key, value);
       },
     };
@@ -335,6 +370,8 @@ describe("panel interactions", () => {
     );
     await store.ready;
     failSessionWrite = true;
+    data.delete("nusm:atomic:slice:prefs");
+    failPrefsRollback = true;
     dispatch(target, "command", {
       action: "replace_persisted",
       commandId: "atomic-replace",
@@ -347,8 +384,20 @@ describe("panel interactions", () => {
       commandId: "atomic-replace",
       status: "error",
     });
-    expect(data.get("nusm:atomic:slice:prefs")).toEqual({ theme: "light" });
     expect(data.get("nusm:atomic:slice:session")).toEqual({ draft: "saved" });
+    data.set("nusm:atomic:slice:prefs", { theme: "light" });
+    dispatch(target, "command", {
+      action: "replace_persisted",
+      commandId: "atomic-replace-non-null",
+      instanceId: store.devtoolsInstanceId,
+      storeId: "atomic",
+      value: { prefs: { theme: "dark" }, session: { draft: "newer" } },
+    });
+    await tick();
+    expect(results.at(-1)).toMatchObject({
+      commandId: "atomic-replace-non-null",
+      status: "error",
+    });
     (() => {
       cleanup();
       globalThis.__TANSTACK_EVENT_TARGET__ = originalTarget;
