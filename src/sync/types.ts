@@ -1,3 +1,5 @@
+import type { AdapterEvent } from "../types.js";
+
 /** An ordered revision supplied by a synchronization source. */
 export interface NusmSyncRevision {
   counter: number;
@@ -37,6 +39,13 @@ export interface NusmSyncContext {
   revision?: NusmSyncRevision;
 }
 
+/** Context supplied when a shared source is attached to one store. */
+export interface NusmSyncSourceContext {
+  storeId: string;
+  instanceId?: string;
+  onError?: (error: unknown) => void;
+}
+
 export type NusmSyncValidationResult =
   | boolean
   | { ok: boolean; value?: unknown };
@@ -63,9 +72,10 @@ export interface NusmSyncSource<TState = unknown> {
   readonly sourceId?: string;
   start(
     listener: NusmSyncSourceListener<TState>,
+    context?: NusmSyncSourceContext,
   ): void | (() => void) | Promise<undefined | (() => void)>;
   publish(event: NusmSyncEvent<TState>): void | Promise<void>;
-  dispose?(): void | Promise<void>;
+  dispose?(context?: NusmSyncSourceContext): void | Promise<void>;
 }
 
 export type NusmSyncSourceInput<TState = unknown> =
@@ -78,5 +88,3 @@ export interface NusmSyncOptions<TState = unknown> {
   validator?: NusmSyncValidator<TState>;
   optimistic?: boolean;
 }
-
-import type { AdapterEvent } from "../types.js";

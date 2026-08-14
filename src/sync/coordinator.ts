@@ -3,6 +3,7 @@ import type { AdapterEvent } from "../types.js";
 import type {
   NusmSyncEvent,
   NusmSyncSource,
+  NusmSyncSourceContext,
   NusmSyncSourceInput,
   NusmSyncStatus,
 } from "./types.js";
@@ -19,6 +20,7 @@ export interface NusmSyncCoordinatorOptions<TState = unknown> {
   onEvent: (event: NusmSyncEvent<TState>) => void | Promise<void>;
   onError?: (error: unknown) => void;
   onStatus?: (status: NusmSyncStatus) => void;
+  instanceId?: string;
 }
 
 export interface NusmSyncCoordinator<TState = unknown> {
@@ -84,6 +86,11 @@ export const createNusmSyncCoordinator = <TState>(
   options: NusmSyncCoordinatorOptions<TState>,
 ): NusmSyncCoordinator<TState> => {
   const sources = asSources(options.sources);
+  const sourceContext: NusmSyncSourceContext = {
+    instanceId: options.instanceId,
+    onError: options.onError,
+    storeId: options.storeId,
+  };
   const pendingWrites = new Map<string, PendingWrite[]>();
   const seenEvents = new Map<string, Set<string>>();
   const cleanups: Array<() => void | Promise<void>> = [];
@@ -126,7 +133,7 @@ export const createNusmSyncCoordinator = <TState>(
       try {
         const cleanup = await source.start((event) => {
           void enqueue(event);
-        });
+        }, sourceContext);
         if (typeof cleanup === "function") cleanups.push(cleanup);
       } catch (error) {
         setStatus("unavailable");
@@ -211,7 +218,7 @@ export const createNusmSyncCoordinator = <TState>(
     }
     for (const source of sources) {
       try {
-        await source.dispose?.();
+        await source.dispose?.(sourceContext);
       } catch (error) {
         failures.push(error);
         report(error);

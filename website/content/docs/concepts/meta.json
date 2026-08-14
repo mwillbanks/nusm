@@ -1,4 +1,4 @@
 {
   "title": "Core Concepts",
-  "pages": ["persistence", "hydration"]
+  "pages": ["persistence", "hydration", "synchronization"]
 }

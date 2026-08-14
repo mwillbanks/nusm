@@ -1,0 +1,55 @@
+---
+title: Authenticated synchronization
+description: Share identified store state across browser contexts with bounded HMAC-authenticated events.
+icon: Radio
+---
+
+nusm can synchronize an identified store across browser contexts through an
+authenticated `BroadcastChannel` source. Synchronization is disabled unless an
+application configures a source explicitly.
+
+## Configure a source
+
+Create a source with a namespace and stable runtime-provisioned key material.
+Do not generate a new key independently in each tab. nusm imports byte keys as
+non-extractable HMAC-SHA-256 keys. You can also provide a matching
+non-extractable `CryptoKey` with `sign` and `verify` usage:
+
+```ts
+import { configureNusm, createBroadcastChannelSyncSource } from "nusm"
+
+const source = createBroadcastChannelSyncSource({
+  namespace: "my-app",
+  // Fetch this base64 key from an authorized runtime provisioning endpoint.
+  key: Uint8Array.from(
+    atob(await fetch("/sync-key").then((response) => response.text())),
+    (character) => character.charCodeAt(0),
+  ),
+})
+
+configureNusm({ sync: { source } })
+```
+
+Global sources auto-enable stores with an explicit `storeId`. Use `sync: false`
+to opt out one store, or provide a store-specific source. Persistence and
+synchronization always require a stable
+`storeId`; Devtools display names never provide identity.
+
+## Authentication and limits
+
+Each store derives an opaque channel capability with HMAC over its namespace and
+`storeId`. Every event signs fixed-order headers and its exact SuperJSON payload.
+The key and raw capability never cross the channel. State is limited to 256 KiB,
+envelopes to 512 KiB, identifiers to 128 UTF-8 bytes, peers to 32, and message
+identities to 128 per peer. Invalid traffic receives at most five reports per
+ten seconds and can enter a temporary 30-second quarantine.
+
+Authentication protects against accidental or unauthorized peers. It does not
+protect state from a compromised same-origin application. Never synchronize
+credentials, tokens, secrets, or sensitive personal data.
+
+## Lifecycle
+
+Call `await store.dispose()` when the store lifetime ends. Disposal releases only
+that store's source subscription. Keep the source configured only while its
+stores are active, and treat `ready` as the store hydration lifecycle signal.

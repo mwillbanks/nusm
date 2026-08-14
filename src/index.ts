@@ -4,17 +4,21 @@ export { createSessionStorageAdapter } from "./adapters/sessionStorageAdapter.js
 export { configureNusm } from "./config.js";
 export { createNusmStore } from "./nusm.js";
 export type {
+  BroadcastChannelSyncSourceOptions,
+  BroadcastSyncLimits,
   NusmSyncContext,
   NusmSyncEvent,
   NusmSyncEventKind,
   NusmSyncOptions,
   NusmSyncRevision,
   NusmSyncSource,
+  NusmSyncSourceContext,
   NusmSyncSourceInput,
   NusmSyncStatus,
   NusmSyncValidationResult,
   NusmSyncValidator,
 } from "./sync/index.js";
+export { createBroadcastChannelSyncSource } from "./sync/index.js";
 export type {
   AdapterEvent,
   AdapterEventType,

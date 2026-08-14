@@ -17,7 +17,7 @@ Explore the full documentation at [mwillbanks.github.io/nusm](https://mwillbanks
 - Async hydration with deep merge
 - Debounced persistence via @tanstack/pacer
 - Adapter-defined external events through subscriptions
-- Opt-in browser cross-tab communication for every identified store
+- Opt-in authenticated browser synchronization for every identified store
 - React hooks (via `nusm/react`)
 - Optional TanStack Devtools store inspector (`nusm/devtools`)
 
@@ -87,33 +87,41 @@ Return value:
 
 - A @tanstack/store instance extended with `ready`, `dispose`, readonly `isReady`, and an immutable `hydration` snapshot. `hydration.overall` and each `hydration.byKey` entry report `pending`, `hydrated`, `discarded`, `error`, or `not_configured`; read a fresh snapshot after lifecycle events rather than mutating it.
 
-### Cross-tab communication
+### Authenticated synchronization
 
-The BroadcastChannel cross-tab transport is disabled by default. Enable it for
-subsequently created stores, then override individual stores when needed:
+Broadcast synchronization is disabled by default. Configure an HMAC key and
+namespace before creating stores. The key must be at least 32 random bytes or a
+non-extractable HMAC-SHA-256 `CryptoKey` with `sign` and `verify` usage:
 
 ```ts
-import { configureNusm, createNusmStore } from 'nusm'
+import { configureNusm, createBroadcastChannelSyncSource, createNusmStore } from 'nusm'
 
-configureNusm({ crossTab: true })
+// Provision the same 32-byte key to every authorized tab at runtime.
+const keyMaterial = Uint8Array.from(
+  atob(await fetch('/sync-key').then((response) => response.text())),
+  (character) => character.charCodeAt(0),
+)
+const source = createBroadcastChannelSyncSource({
+  namespace: 'my-app',
+  key: keyMaterial,
+})
+configureNusm({ sync: { source } })
 const shared = createNusmStore({ count: 0 }, { storeId: 'shared-counter' })
 const local = createNusmStore(
   { draft: '' },
-  { crossTab: false, storeId: 'local-draft' },
+  { sync: false, storeId: 'local-draft' },
 )
 ```
 
-The store option overrides the creation-time global default. Browser peers use
-a stable `storeId`, or a normalized Devtools name. Global opt-in skips unnamed
-stores; explicit opt-in rejects them. New tabs request a snapshot after
-hydration. Later changes update memory and the receiving adapter without echo
-loops. Memory-only, local storage, session storage, IndexedDB, and custom
-adapters use the same transport.
+Sources use an opaque HMAC-derived channel and authenticate every fixed-order
+header and SuperJSON payload. They bound state to 256 KiB, envelopes to 512 KiB,
+identifiers to 128 UTF-8 bytes, peers to 32, and message identities to 128 per
+peer. Invalid traffic receives bounded error reports and temporary quarantine.
 
-Unsupported browsers and non-window runtimes retain local behavior.
-Instrumented stores report transport status through Devtools. Cross-tab state
-must support structured cloning; failures reach `onError`. Call
-`await store.dispose()` to flush pending persistence and release listeners.
+Synchronization remains defense-in-depth against a compromised same-origin
+application. Never synchronize credentials, tokens, secrets, or sensitive
+personal data. Every synchronized or persisted store requires an explicit
+`storeId`; use `sync: false` for a store-level opt-out.
 
 ## Breaking changes and upgrades
 
@@ -189,7 +197,7 @@ Notes:
   devtools snapshots read configured persistence units through `resolveKey`.
 - `resolveKey` lets you control key layout. When omitted, nusm uses
 	`nusm:<storeId>:entire` and `nusm:<storeId>:slice:<sliceKey>`.
-- `subscribe` should emit adapter-defined external events. nusm always attaches it when provided. BroadcastChannel independently shares store state between browser tabs.
+- `subscribe` should emit adapter-defined external events. nusm always attaches it when provided. Authenticated synchronization independently shares state between browser contexts.
 - `pacer` controls debouncing of writes. Use `false` to write immediately.
 
 ### Creating a custom adapter

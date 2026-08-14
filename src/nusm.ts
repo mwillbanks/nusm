@@ -904,7 +904,11 @@ export function createNusmStore<TState>(
 
   if (storeId) {
     syncCoordinator = createNusmSyncCoordinator<TState>({
-      onError,
+      instanceId: devtoolsInstanceId,
+      onError: (error) => {
+        onError?.(error);
+        emitSynchronizationEvent("synchronization_protocol_error", error);
+      },
       onEvent: async (event) => {
         if (event.kind === "adapter") {
           if (event.adapterEvent)
