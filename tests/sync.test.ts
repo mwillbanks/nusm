@@ -77,11 +77,14 @@ describe("synchronization communication", () => {
         sync: { source: source.source, validator: validateSyncCandidate },
       },
     );
+    const transitions: number[] = [];
+    const unsubscribe = store.subscribe(() => {
+      transitions.push(store.state.value);
+    });
     await hydrationStarted;
     source.emit({
       eventId: "during-hydration",
       kind: "update",
-      revision: { counter: 1, epoch: "0", senderId: "peer" },
       sourceId: "peer",
       state: { value: 42 },
       storeId: "deferred-update",
@@ -89,9 +92,19 @@ describe("synchronization communication", () => {
     await Promise.resolve();
 
     resolveHydration(null);
+    source.emit({
+      eventId: "during-hydration-newer",
+      kind: "update",
+      sourceId: "peer",
+      state: { value: 43 },
+      storeId: "deferred-update",
+    });
     await store.ready;
 
-    expect(store.state).toEqual({ value: 42 });
+    expect(transitions.slice(-2)).toEqual([42, 43]);
+    expect(store.state).toEqual({ value: 43 });
+    if (typeof unsubscribe === "function") unsubscribe();
+    else unsubscribe.unsubscribe();
     await store.dispose();
   });
 

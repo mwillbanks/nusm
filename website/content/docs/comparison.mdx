@@ -12,7 +12,7 @@ nusm is not a competing reactive engine. It builds directly on [`@tanstack/store
 | --- | ---: | ---: |
 | Observable state container | Yes | Yes, inherited |
 | `state`, `setState`, and `subscribe` | Yes | Yes, inherited |
-| Batched updates | Yes | Yes, re-exported `batch` |
+| Batched updates | Yes | Yes, through `@tanstack/store` |
 | Built-in persistence lifecycle | No | Yes |
 | Entire-store persistence | Bring your own | Built in |
 | Selective slice persistence | Bring your own | Built in |
@@ -36,10 +36,11 @@ store.setState((state) => ({ ...state, count: state.count + 1 }))
 store.subscribe(listener)
 ```
 
-nusm also re-exports `Store` and `batch` from the root package:
+Import `Store` and `batch` from TanStack Store when you need those lower-level
+runtime primitives:
 
 ```ts
-import { batch, Store } from "nusm"
+import { batch, Store } from "@tanstack/store"
 ```
 
 This makes nusm a low-friction choice when some stores need persistence and others do not.
@@ -63,6 +64,7 @@ interface NusmStore<TState> extends Store<TState> {
   readonly devtoolsInstanceId: string
   readonly hydration: ReadonlyHydrationStatus
   readonly isReady: boolean
+  dispose(): Promise<void>
   ready: Promise<void>
 }
 ```

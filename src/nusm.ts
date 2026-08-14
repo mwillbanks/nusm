@@ -203,6 +203,7 @@ export function createNusmStore<TState>(
     senderId: devtoolsInstanceId,
   };
   let hydratedForSync = !adapter;
+  let replayingDeferredSyncEvents = false;
   const deferredSyncEvents: NusmSyncEvent<TState>[] = [];
   const cleanupTasks: Array<() => void> = [];
   let syncCoordinator:
@@ -865,7 +866,6 @@ export function createNusmStore<TState>(
     generation: number,
   ) => {
     assertHydrationCurrent(generation);
-    hydratedForSync = true;
     const announce = syncCoordinator?.announceReady(store.state);
     if (syncCoordinator && syncOptimistic) void announce;
     else await announce;
@@ -873,9 +873,16 @@ export function createNusmStore<TState>(
     if (syncCoordinator && !syncOptimistic)
       await syncCoordinator.waitForConvergence();
     assertHydrationCurrent(generation);
-    for (const event of deferredSyncEvents.splice(0)) {
-      await applySyncStateEvent(event);
-      assertHydrationCurrent(generation);
+    hydratedForSync = true;
+    replayingDeferredSyncEvents = true;
+    try {
+      while (deferredSyncEvents.length > 0) {
+        const event = deferredSyncEvents.shift();
+        if (event) await applySyncStateEvent(event, true);
+        assertHydrationCurrent(generation);
+      }
+    } finally {
+      replayingDeferredSyncEvents = false;
     }
     assertHydrationCurrent(generation);
     isReady = true;
@@ -1136,18 +1143,21 @@ export function createNusmStore<TState>(
       incoming.senderId.localeCompare(current.senderId)
     );
   };
-  const applySyncStateEvent = async (event: NusmSyncEvent<TState>) => {
+  const shouldDeferSyncStateEvent = (fromDeferredQueue: boolean) =>
+    !hydratedForSync || (replayingDeferredSyncEvents && !fromDeferredQueue);
+  const hasApplicableSyncRevision = (event: NusmSyncEvent<TState>) =>
+    !event.revision || compareSyncRevisions(event.revision, syncRevision) > 0;
+  const applySyncStateEvent = async (
+    event: NusmSyncEvent<TState>,
+    fromDeferredQueue = false,
+  ) => {
     if (lifecycle.disposed) return;
     if (!Object.hasOwn(event, "state")) return;
-    if (!hydratedForSync) {
+    if (shouldDeferSyncStateEvent(fromDeferredQueue)) {
       deferredSyncEvents.push(event);
       return;
     }
-    if (
-      event.revision &&
-      compareSyncRevisions(event.revision, syncRevision) <= 0
-    )
-      return;
+    if (!hasApplicableSyncRevision(event)) return;
     if (event.revision) syncRevision = event.revision;
     applyRemoteState(
       event.state,
