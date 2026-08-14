@@ -16,6 +16,7 @@ import type {
   NusmSyncEvent,
   NusmSyncRevision,
   NusmSyncStatus,
+  NusmSyncValidator,
 } from "./sync/types.js";
 import type {
   AdapterEvent,
@@ -92,6 +93,25 @@ const resolveValidateResult = (
   };
 };
 
+const resolveSyncValidationResult = <TState>(
+  result: boolean | { ok: boolean; value?: TState },
+  candidate: TState,
+): { ok: boolean; value: TState } => {
+  if (typeof result === "boolean") return { ok: result, value: candidate };
+  if (
+    result === null ||
+    typeof result !== "object" ||
+    typeof result.ok !== "boolean"
+  )
+    return { ok: false, value: candidate };
+  return {
+    ok: result.ok,
+    value: Object.hasOwn(result, "value")
+      ? (result.value as TState)
+      : candidate,
+  };
+};
+
 const resolveCommandStatus = (
   action: NusmDevtoolsCommand["action"],
   snapshotError: string | undefined,
@@ -120,12 +140,30 @@ export function createNusmStore<TState>(
   const storeIdValue = storeId ?? devtoolsInstanceId;
   const globalSync = getNusmGlobalOptions().sync;
   const storeSync = options?.sync;
-  const syncOptions =
-    storeSync === false ? undefined : (storeSync ?? globalSync);
-  const syncSources = syncOptions?.sources ?? syncOptions?.source;
+  const syncSources =
+    storeSync === false
+      ? undefined
+      : (storeSync?.sources ??
+        storeSync?.source ??
+        globalSync?.sources ??
+        globalSync?.source);
+  const syncValidator = (
+    storeSync === false
+      ? undefined
+      : (storeSync?.validator ?? globalSync?.validator)
+  ) as NusmSyncValidator<TState> | undefined;
+  const syncOptimistic =
+    storeSync === false
+      ? undefined
+      : (storeSync?.optimistic ?? globalSync?.optimistic);
   if ((adapter || syncSources) && !storeId) {
     throw new Error(
       "nusm requires an explicit storeId when persistence or synchronization is enabled.",
+    );
+  }
+  if ((syncSources || adapter?.subscribe) && !syncValidator) {
+    throw new Error(
+      "nusm requires an explicit synchronization validator for remote inputs.",
     );
   }
   const configuredEventLogCap =
@@ -158,6 +196,9 @@ export function createNusmStore<TState>(
     | ReturnType<typeof createNusmSyncCoordinator<TState>>
     | undefined;
   let syncEventSequence = 0;
+  let synchronizationRejectionCount = 0;
+  let synchronizationRejectionWindow = 0;
+  let externalStateGeneration = 0;
 
   const emitSynchronizationEvent = (
     type:
@@ -165,6 +206,7 @@ export function createNusmStore<TState>(
       | "synchronization_remote_applied"
       | "synchronization_unavailable"
       | "synchronization_protocol_error"
+      | "synchronization_rejected"
       | "synchronization_disposed",
     detail?: unknown,
   ) => {
@@ -174,6 +216,22 @@ export function createNusmStore<TState>(
       ts: Date.now(),
       type,
     });
+  };
+  const reportSynchronizationRejection = (error: unknown, detail: unknown) => {
+    const now = Date.now();
+    if (now - synchronizationRejectionWindow >= 10_000) {
+      synchronizationRejectionWindow = now;
+      synchronizationRejectionCount = 0;
+    }
+    if (synchronizationRejectionCount >= 5) return;
+    synchronizationRejectionCount += 1;
+    const rejection = error instanceof Error ? error : new Error(String(error));
+    try {
+      onError?.(rejection);
+    } catch {
+      // User error reporters must not suppress the rejection event.
+    }
+    emitSynchronizationEvent("synchronization_rejected", detail);
   };
   const store = new Store<TState>(
     adapter ? (undefined as unknown as TState) : initialState,
@@ -189,6 +247,7 @@ export function createNusmStore<TState>(
   let isReady = false;
   let suppressPersist = false;
   let suppressSynchronization = false;
+  let restrictedPersistenceKeys: readonly string[] | undefined;
 
   const hydrationStatus: HydrationStatus = {
     byKey: createDataRecord(),
@@ -284,6 +343,15 @@ export function createNusmStore<TState>(
     string,
     Array<{ event: AdapterEvent; generation?: number }>
   >();
+  let adapterReadQueue = Promise.resolve();
+  const readAdapterItem = (key: string) => {
+    const read = adapterReadQueue.then(() => adapter?.getItem(key) ?? null);
+    adapterReadQueue = read.then(
+      () => undefined,
+      () => undefined,
+    );
+    return read;
+  };
   let replayDeferredAdapterEvents: (() => void) | undefined;
 
   const queuedPayloads = new Map<
@@ -486,11 +554,44 @@ export function createNusmStore<TState>(
       return resolvedEntireKey ? [resolvedEntireKey] : undefined;
     return slices
       .filter(
-        (slice) => !Object.is(slice.select(previous), slice.select(current)),
+        (slice) => !deepEqual(slice.select(previous), slice.select(current)),
       )
       .map((slice) => resolvedSliceKeys.get(slice.key) ?? slice.key);
   };
-  const scheduleStatePersistence = (previous: TState, current: TState) => {
+  const scheduleEntirePersistence = (
+    previous: TState,
+    current: TState,
+    allowedKeys?: readonly string[],
+  ) => {
+    const key = resolveKey({ kind: "entire" });
+    if (allowedKeys && !allowedKeys.includes(key)) return;
+    if (deepEqual(previous, current)) return;
+    enqueuePersist({ key, kind: "entire", payload: current });
+  };
+  const scheduleSlicePersistence = (
+    previous: TState,
+    current: TState,
+    allowedKeys?: readonly string[],
+  ) => {
+    for (const slice of slices) {
+      const previousSlice = slice.select(previous);
+      const nextSlice = slice.select(current);
+      if (deepEqual(previousSlice, nextSlice)) continue;
+      const key = resolveKey({ kind: "slice", sliceKey: slice.key });
+      if (allowedKeys && !allowedKeys.includes(key)) continue;
+      enqueuePersist({
+        key,
+        kind: "slice",
+        payload: nextSlice,
+        sliceKey: slice.key,
+      });
+    }
+  };
+  const scheduleStatePersistence = (
+    previous: TState,
+    current: TState,
+    allowedKeys?: readonly string[],
+  ) => {
     if (!adapter) return;
     if (
       supersededPersistenceState &&
@@ -500,34 +601,23 @@ export function createNusmStore<TState>(
       return;
     }
     supersededPersistenceState = undefined;
-    if (strategy === "entire") {
-      const key = resolveKey({ kind: "entire" });
-      enqueuePersist({ key, kind: "entire", payload: current });
-      return;
-    }
-    for (const slice of slices) {
-      const previousSlice = slice.select(previous);
-      const nextSlice = slice.select(current);
-      if (Object.is(previousSlice, nextSlice)) continue;
-      const key = resolveKey({ kind: "slice", sliceKey: slice.key });
-      enqueuePersist({
-        key,
-        kind: "slice",
-        payload: nextSlice,
-        sliceKey: slice.key,
-      });
-    }
+    if (strategy === "entire")
+      scheduleEntirePersistence(previous, current, allowedKeys);
+    else scheduleSlicePersistence(previous, current, allowedKeys);
   };
   const subscribeToStore = () => {
     const subscription = store.subscribe((currentVal) => {
       const prevVal = previousState;
       previousState = currentVal;
       if (currentVal === prevVal) return;
+      externalStateGeneration += 1;
       if (suppressPersist) return;
       void emitDevtoolsSnapshot();
       const changedKeys = resolveChangedPersistenceKeys(prevVal, currentVal);
       broadcastLocalState(currentVal, changedKeys);
-      scheduleStatePersistence(prevVal, currentVal);
+      const allowedKeys = restrictedPersistenceKeys;
+      restrictedPersistenceKeys = undefined;
+      scheduleStatePersistence(prevVal, currentVal, allowedKeys);
     });
     cleanupTasks.push(
       typeof subscription === "function"
@@ -542,8 +632,14 @@ export function createNusmStore<TState>(
     suppressPersist = false;
   };
 
-  const applyRemoteState = (nextState: unknown, sourceId: string) => {
+  const applyRemoteState = (
+    nextState: unknown,
+    sourceId: string,
+    changedKeys?: readonly string[],
+  ) => {
     if (disposed) return;
+    if (deepEqual(store.state, nextState)) return;
+    restrictedPersistenceKeys = changedKeys;
     suppressSynchronization = true;
     try {
       store.setState(() => nextState as TState);
@@ -569,7 +665,7 @@ export function createNusmStore<TState>(
     }
 
     try {
-      const raw = await adapter.getItem(key);
+      const raw = await readAdapterItem(key);
       if (raw == null) {
         await persistHydrationBaseline({ key, payload: initialState });
         hydrationStatus.byKey.entire = "hydrated";
@@ -743,9 +839,9 @@ export function createNusmStore<TState>(
   const completeHydration = async (emitHydration: boolean) => {
     hydratedForSync = true;
     const announce = syncCoordinator?.announceReady(store.state);
-    if (syncCoordinator && syncOptions?.optimistic) void announce;
+    if (syncCoordinator && syncOptimistic) void announce;
     else await announce;
-    if (syncCoordinator && !syncOptions?.optimistic)
+    if (syncCoordinator && !syncOptimistic)
       await syncCoordinator.waitForConvergence();
     for (const event of deferredSyncEvents.splice(0))
       await syncCoordinator?.enqueue(event);
@@ -796,6 +892,40 @@ export function createNusmStore<TState>(
     }
   };
 
+  const validateExternalCandidate = async (
+    candidate: TState,
+    event: AdapterEvent,
+  ): Promise<{ ok: boolean; value: TState }> => {
+    const validator = syncValidator;
+    if (!validator) {
+      reportSynchronizationRejection(
+        new Error("Adapter synchronization requires a validator."),
+        event,
+      );
+      return { ok: false, value: candidate };
+    }
+    try {
+      const result = await validator(candidate, {
+        kind: "adapter",
+        revision: undefined,
+        source: adapter?.name || "adapter",
+        storeId: storeIdValue,
+      });
+      const validated = resolveSyncValidationResult(result, candidate);
+      if (!validated.ok) {
+        reportSynchronizationRejection(
+          new Error("Synchronization validator rejected adapter state."),
+          event,
+        );
+        return { ok: false, value: candidate };
+      }
+      return { ok: true, value: validated.value };
+    } catch (error) {
+      reportSynchronizationRejection(error, event);
+      return { ok: false, value: candidate };
+    }
+  };
+
   // fallow-ignore-next-line complexity
   const handleAdapterEvent = async (
     event: AdapterEvent,
@@ -817,6 +947,7 @@ export function createNusmStore<TState>(
     }
 
     const applyExternalState = (nextState: TState) => {
+      if (deepEqual(store.state, nextState)) return;
       suppressPersist = true;
       store.setState(() => nextState);
       suppressPersist = false;
@@ -830,8 +961,11 @@ export function createNusmStore<TState>(
     };
 
     if (event.type === "clear") {
+      const candidateGeneration = externalStateGeneration;
       if (strategy === "entire") {
-        applyExternalState(initialState);
+        const validated = await validateExternalCandidate(initialState, event);
+        if (candidateGeneration !== externalStateGeneration) return;
+        if (validated.ok) applyExternalState(validated.value);
         return;
       }
 
@@ -839,7 +973,9 @@ export function createNusmStore<TState>(
       for (const slice of slices) {
         nextState = slice.apply(nextState, slice.select(initialState));
       }
-      applyExternalState(nextState);
+      const validated = await validateExternalCandidate(nextState, event);
+      if (candidateGeneration !== externalStateGeneration) return;
+      if (validated.ok) applyExternalState(validated.value);
       return;
     }
 
@@ -859,28 +995,37 @@ export function createNusmStore<TState>(
         syncCoordinator?.matchesPendingWrite(event.key, undefined, generation)
       )
         return;
+      const candidateGeneration = externalStateGeneration;
       if (unit.kind === "entire") {
-        applyExternalState(initialState);
+        const validated = await validateExternalCandidate(initialState, event);
+        if (candidateGeneration !== externalStateGeneration) return;
+        if (validated.ok) applyExternalState(validated.value);
       } else {
         const slice = slices.find(
           (candidate) => candidate.key === unit.sliceKey,
         );
         if (slice) {
           const resetValue = slice.select(initialState);
-          applyExternalState(slice.apply(store.state, resetValue));
+          const validated = await validateExternalCandidate(
+            slice.apply(store.state, resetValue),
+            event,
+          );
+          if (candidateGeneration !== externalStateGeneration) return;
+          if (validated.ok) applyExternalState(validated.value);
         }
       }
       return;
     }
 
     if (unit.kind === "entire") {
+      const candidateGeneration = externalStateGeneration;
       const observedGeneration =
         generation ?? persistenceKeyGenerations.get(event.key) ?? 0;
       if (
         (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
       )
         return;
-      const raw = await adapter.getItem(event.key);
+      const raw = await readAdapterItem(event.key);
       if (raw == null) return;
       if (
         (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
@@ -894,17 +1039,24 @@ export function createNusmStore<TState>(
             persisted: raw,
           })
         : deepMerge(initialState, raw);
-      applyExternalState(merged);
+      const validated = await validateExternalCandidate(merged, event);
+      if (candidateGeneration !== externalStateGeneration) return;
+      if (
+        (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
+      )
+        return;
+      if (validated.ok) applyExternalState(validated.value);
     } else {
       const slice = slices.find((candidate) => candidate.key === unit.sliceKey);
       if (!slice) return;
+      const candidateGeneration = externalStateGeneration;
       const observedGeneration =
         generation ?? persistenceKeyGenerations.get(event.key) ?? 0;
       if (
         (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
       )
         return;
-      const raw = await adapter.getItem(event.key);
+      const raw = await readAdapterItem(event.key);
       if (raw == null) return;
       if (
         (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
@@ -912,7 +1064,16 @@ export function createNusmStore<TState>(
         return;
       if (syncCoordinator?.matchesPendingWrite(event.key, raw, generation))
         return;
-      applyExternalState(slice.apply(store.state, raw));
+      const validated = await validateExternalCandidate(
+        slice.apply(store.state, raw),
+        event,
+      );
+      if (candidateGeneration !== externalStateGeneration) return;
+      if (
+        (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
+      )
+        return;
+      if (validated.ok) applyExternalState(validated.value);
     }
   };
 
@@ -944,7 +1105,11 @@ export function createNusmStore<TState>(
     )
       return;
     if (event.revision) syncRevision = event.revision;
-    applyRemoteState(event.state, event.sourceId);
+    applyRemoteState(
+      event.state,
+      event.sourceId,
+      event.kind === "update" ? event.changedKeys : undefined,
+    );
   };
   const handleCoordinatorEvent = async (event: NusmSyncEvent<TState>) => {
     if (event.kind === "adapter") {
@@ -963,6 +1128,15 @@ export function createNusmStore<TState>(
         emitSynchronizationEvent("synchronization_protocol_error", error);
       },
       onEvent: handleCoordinatorEvent,
+      onRejected: (error, event) =>
+        reportSynchronizationRejection(error, {
+          error: error.message,
+          eventId: event.eventId,
+          kind: event.kind,
+          requestId: event.requestId,
+          revision: event.revision,
+          source: event.sourceId,
+        }),
       onSnapshotRequest: () => store.state,
       onStatus: (status) => {
         synchronizationStatus = status;
@@ -974,11 +1148,12 @@ export function createNusmStore<TState>(
         if (status === "active")
           emitSynchronizationEvent("synchronization_connected");
       },
-      optimistic: syncOptions?.optimistic,
+      optimistic: syncOptimistic,
       sources: syncSources as
         | import("./sync/types.js").NusmSyncSourceInput<TState>
         | undefined,
       storeId,
+      validator: syncValidator,
     });
   }
 
@@ -1026,13 +1201,13 @@ export function createNusmStore<TState>(
   const readPersistedSnapshot = async (): Promise<unknown> => {
     if (!adapter || !storeId) return undefined;
     if (strategy === "entire") {
-      const raw = await adapter.getItem(resolveKey({ kind: "entire" }));
+      const raw = await readAdapterItem(resolveKey({ kind: "entire" }));
       return raw == null ? undefined : raw;
     }
 
     const result = createDataRecord<unknown>();
     for (const slice of slices) {
-      const raw = await adapter.getItem(
+      const raw = await readAdapterItem(
         resolveKey({ kind: "slice", sliceKey: slice.key }),
       );
       if (raw == null) continue;
@@ -1277,7 +1452,7 @@ export function createNusmStore<TState>(
         await recordAdapterWrite(key, () => adapter.setItem(key, value), value);
         return;
       }
-      const current = await adapter.getItem(key);
+      const current = await readAdapterItem(key);
       const base = current == null ? slice.select(initialState) : current;
       assertDevtoolsValue(base);
       const next = setValueAtPath(base, nestedPath, value);
@@ -1308,7 +1483,7 @@ export function createNusmStore<TState>(
         await recordAdapterWrite(key, () => adapter.removeItem(key), undefined);
         return;
       }
-      const current = await adapter.getItem(key);
+      const current = await readAdapterItem(key);
       if (current == null)
         throw new Error("Cannot remove a path from a missing persisted slice.");
       assertDevtoolsValue(current);

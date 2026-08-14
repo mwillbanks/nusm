@@ -28,6 +28,10 @@ describe("nusm hydration", () => {
         adapter,
         persist: { strategy: "entire" },
         storeId,
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
 
@@ -186,6 +190,10 @@ describe("nusm hydration", () => {
         onError: (err) => errors.push(err),
         persist: { strategy: "entire" },
         storeId,
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
 
@@ -443,6 +451,10 @@ describe("nusm persistence scheduling", () => {
         onError: (err) => errors.push(err),
         persist: { strategy: "entire" },
         storeId,
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
     await nusm.ready;
@@ -456,8 +468,166 @@ describe("nusm persistence scheduling", () => {
 });
 
 describe("nusm adapter events", () => {
+  test("delayed adapter validation cannot overwrite a newer synchronized different-slice state", async () => {
+    const sourceListeners = new Set<
+      (event: import("../src").NusmSyncEvent) => void
+    >();
+    const source = {
+      publish: () => undefined,
+      start: (listener: (event: import("../src").NusmSyncEvent) => void) => {
+        sourceListeners.add(listener);
+        return () => sourceListeners.delete(listener);
+      },
+    };
+    const values = new Map<string, unknown>([
+      ["nusm:adapter-race:slice:object", { enabled: false }],
+      ["nusm:adapter-race:slice:items", [{ id: 1 }]],
+    ]);
+    const adapter: NusmAdapter = {
+      getItem: async (key) => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return values.get(key) ?? null;
+      },
+      name: "adapter-race",
+      removeItem: (key) => void values.delete(key),
+      setItem: (key, value) => void values.set(key, value),
+      subscribe: (listener) => {
+        (
+          adapter as NusmAdapter & { listener?: (event: AdapterEvent) => void }
+        ).listener = listener;
+        return () => undefined;
+      },
+    };
+    const slices: PersistSlice<{ object: unknown; items: unknown[] }>[] = [
+      {
+        apply: (state, value) => ({ ...state, object: value }),
+        key: "object",
+        select: (state) => state.object,
+      },
+      {
+        apply: (state, value) => ({ ...state, items: value as unknown[] }),
+        key: "items",
+        select: (state) => state.items,
+      },
+    ];
+    const store = createNusmStore(
+      { items: [{ id: 1 }], object: { enabled: false } },
+      {
+        adapter,
+        persist: { slices, strategy: "slices" },
+        storeId: "adapter-race",
+        sync: {
+          source,
+          validator: async (candidate, context) => {
+            if (context.source === "adapter-race")
+              await new Promise((resolve) => setTimeout(resolve, 25));
+            return candidate !== null && typeof candidate === "object";
+          },
+        },
+      },
+    );
+    await store.ready;
+    values.set("nusm:adapter-race:slice:object", { enabled: true });
+    (
+      adapter as NusmAdapter & { listener?: (event: AdapterEvent) => void }
+    ).listener?.({
+      key: "nusm:adapter-race:slice:object",
+      type: "set",
+    });
+    for (const listener of sourceListeners)
+      listener({
+        eventId: "adapter-race-sync",
+        kind: "update",
+        revision: { counter: 1, senderId: "peer" },
+        sourceId: "peer",
+        state: { items: [{ id: 2 }], object: { enabled: false } },
+        storeId: "adapter-race",
+      });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(store.state).toEqual({
+      items: [{ id: 2 }],
+      object: { enabled: false },
+    });
+    await store.dispose();
+  });
+
+  test("validates live adapter candidates after merge while hydration validation stays independent", async () => {
+    const memory = createMemoryAdapter({ pacer: false, withSubscribe: true });
+    const sourceEvents: unknown[] = [];
+    const key = resolveKey({ kind: "entire", storeId: "adapter-validation" });
+    memory.store.set(key, { value: 2 });
+    const store = createNusmStore(
+      { value: 1 },
+      {
+        adapter: memory.adapter,
+        persist: {
+          hydrate: { validate: () => false },
+          strategy: "entire",
+        },
+        storeId: "adapter-validation",
+        sync: {
+          source: {
+            publish: (event) => sourceEvents.push(event),
+            start: () => () => undefined,
+          },
+          validator: (candidate) =>
+            (candidate as { value: number }).value === 3,
+        },
+      },
+    );
+    await store.ready;
+    expect(store.state).toEqual({ value: 1 });
+    memory.setItemCalls.length = 0;
+    sourceEvents.length = 0;
+    memory.store.set(key, { value: -1 });
+    memory.emit({ key, type: "set" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(store.state).toEqual({ value: 1 });
+    expect(memory.setItemCalls).toHaveLength(0);
+    expect(sourceEvents).toHaveLength(0);
+    memory.store.set(key, { value: 3 });
+    memory.emit({ key, type: "set" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(store.state).toEqual({ value: 3 });
+    memory.setItemCalls.length = 0;
+    sourceEvents.length = 0;
+    memory.emit({ key, type: "remove" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(store.state).toEqual({ value: 3 });
+    expect(memory.setItemCalls).toHaveLength(0);
+    expect(sourceEvents).toHaveLength(0);
+    memory.emit({ type: "clear" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(store.state).toEqual({ value: 3 });
+    expect(memory.setItemCalls).toHaveLength(0);
+    expect(sourceEvents).toHaveLength(0);
+    await store.dispose();
+  });
+
+  test("applies an adapter transformation to an undefined-capable state", async () => {
+    const memory = createMemoryAdapter({ pacer: false, withSubscribe: true });
+    const key = resolveKey({ kind: "entire", storeId: "adapter-undefined" });
+    const store = createNusmStore<string | undefined>("initial", {
+      adapter: memory.adapter,
+      persist: { strategy: "entire" },
+      storeId: "adapter-undefined",
+      sync: {
+        validator: (candidate) =>
+          candidate === "remote" ? { ok: true, value: undefined } : false,
+      },
+    });
+    await store.ready;
+    memory.store.set(key, "remote");
+    memory.emit({ key, type: "set" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(store.state).toBeUndefined();
+    await store.dispose();
+  });
+
   test("external set updates the store after ready", async () => {
-    const { adapter, store, emit } = createMemoryAdapter();
+    const { adapter, store, emit } = createMemoryAdapter({
+      withSubscribe: true,
+    });
     const storeId = "external-set";
     const key = resolveKey({ kind: "entire", storeId });
     store.set(key, { value: 1 });
@@ -468,6 +638,10 @@ describe("nusm adapter events", () => {
         adapter,
         persist: { strategy: "entire" },
         storeId,
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
 
@@ -480,7 +654,10 @@ describe("nusm adapter events", () => {
   });
 
   test("events before ready are buffered and applied after hydration", async () => {
-    const { adapter, store, emit } = createMemoryAdapter({ delayGetMs: 30 });
+    const { adapter, store, emit } = createMemoryAdapter({
+      delayGetMs: 30,
+      withSubscribe: true,
+    });
     const storeId = "buffered-event";
     const key = resolveKey({ kind: "entire", storeId });
     store.set(key, { value: 1 });
@@ -491,6 +668,10 @@ describe("nusm adapter events", () => {
         adapter,
         persist: { strategy: "entire" },
         storeId,
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
 
@@ -504,7 +685,9 @@ describe("nusm adapter events", () => {
   });
 
   test("remove event resets to initial state", async () => {
-    const { adapter, store, emit } = createMemoryAdapter();
+    const { adapter, store, emit } = createMemoryAdapter({
+      withSubscribe: true,
+    });
     const storeId = "remove-event";
     const key = resolveKey({ kind: "entire", storeId });
     store.set(key, { value: 10 });
@@ -515,6 +698,10 @@ describe("nusm adapter events", () => {
         adapter,
         persist: { strategy: "entire" },
         storeId,
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
 
@@ -526,7 +713,9 @@ describe("nusm adapter events", () => {
   });
 
   test("clear event resets slices to initial state", async () => {
-    const { adapter, store, emit } = createMemoryAdapter();
+    const { adapter, store, emit } = createMemoryAdapter({
+      withSubscribe: true,
+    });
     const storeId = "clear-event";
     const key = resolveKey({ kind: "slice", sliceKey: "todos", storeId });
     store.set(key, [{ id: 1 }]);
@@ -549,6 +738,10 @@ describe("nusm adapter events", () => {
           strategy: "slices",
         },
         storeId,
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
 
@@ -560,7 +753,9 @@ describe("nusm adapter events", () => {
   });
 
   test("clear event resets entire state", async () => {
-    const { adapter, store, emit } = createMemoryAdapter();
+    const { adapter, store, emit } = createMemoryAdapter({
+      withSubscribe: true,
+    });
     const storeId = "clear-entire";
     const key = resolveKey({ kind: "entire", storeId });
     store.set(key, { value: 10 });
@@ -571,6 +766,10 @@ describe("nusm adapter events", () => {
         adapter,
         persist: { strategy: "entire" },
         storeId,
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
 
@@ -582,7 +781,9 @@ describe("nusm adapter events", () => {
   });
 
   test("slice remove resets slice to initial", async () => {
-    const { adapter, store, emit } = createMemoryAdapter();
+    const { adapter, store, emit } = createMemoryAdapter({
+      withSubscribe: true,
+    });
     const storeId = "slice-remove";
     const key = resolveKey({ kind: "slice", sliceKey: "prefs", storeId });
     store.set(key, { theme: "dark" });
@@ -605,6 +806,10 @@ describe("nusm adapter events", () => {
           strategy: "slices",
         },
         storeId,
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
 
@@ -616,7 +821,7 @@ describe("nusm adapter events", () => {
   });
 
   test("slice set ignores missing persisted value", async () => {
-    const { adapter, emit } = createMemoryAdapter();
+    const { adapter, emit } = createMemoryAdapter({ withSubscribe: true });
     const storeId = "slice-null";
     const key = resolveKey({ kind: "slice", sliceKey: "prefs", storeId });
 
@@ -638,6 +843,10 @@ describe("nusm adapter events", () => {
           strategy: "slices",
         },
         storeId,
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
 
@@ -649,7 +858,9 @@ describe("nusm adapter events", () => {
   });
 
   test("external set uses hydrate merge for entire state", async () => {
-    const { adapter, store, emit } = createMemoryAdapter();
+    const { adapter, store, emit } = createMemoryAdapter({
+      withSubscribe: true,
+    });
     const storeId = "external-merge";
     const key = resolveKey({ kind: "entire", storeId });
     store.set(key, { value: 2 });
@@ -669,6 +880,10 @@ describe("nusm adapter events", () => {
           strategy: "entire",
         },
         storeId,
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
 
@@ -769,7 +984,10 @@ describe("nusm guards", () => {
   });
 
   test("applies an adapter event when its value differs from the completed write", async () => {
-    const { adapter, store, emit } = createMemoryAdapter({ pacer: false });
+    const { adapter, store, emit } = createMemoryAdapter({
+      pacer: false,
+      withSubscribe: true,
+    });
     const storeId = "recent-write";
     const key = resolveKey({ kind: "entire", storeId });
     store.set(key, { value: 1 });
@@ -780,6 +998,10 @@ describe("nusm guards", () => {
         adapter,
         persist: { strategy: "entire" },
         storeId,
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
 
@@ -818,7 +1040,15 @@ describe("nusm guards", () => {
     };
     const store = createNusmStore(
       { value: 0 },
-      { adapter, persist: { strategy: "entire" }, storeId: "racy" },
+      {
+        adapter,
+        persist: { strategy: "entire" },
+        storeId: "racy",
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
+      },
     );
     await store.ready;
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -861,7 +1091,15 @@ describe("nusm guards", () => {
     };
     const store = createNusmStore(
       { value: 0 },
-      { adapter, persist: { strategy: "entire" }, storeId: "clear-racy" },
+      {
+        adapter,
+        persist: { strategy: "entire" },
+        storeId: "clear-racy",
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
+      },
     );
     await store.ready;
     const started = new Promise<void>((resolve) => {
@@ -881,7 +1119,10 @@ describe("nusm guards", () => {
   });
 
   test("correlates cloned adapter echoes without hiding differing values", async () => {
-    const { adapter, store, emit } = createMemoryAdapter({ pacer: false });
+    const { adapter, store, emit } = createMemoryAdapter({
+      pacer: false,
+      withSubscribe: true,
+    });
     const storeId = "cloned-echo";
     const key = resolveKey({ kind: "entire", storeId });
     const nusm = createNusmStore(
@@ -890,6 +1131,10 @@ describe("nusm guards", () => {
         adapter,
         persist: { strategy: "entire" },
         storeId,
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
     await nusm.ready;
@@ -946,6 +1191,10 @@ describe("nusm guards", () => {
         adapter,
         persist: { strategy: "entire" },
         storeId: "generation",
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
     await store.ready;

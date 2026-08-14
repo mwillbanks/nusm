@@ -182,6 +182,10 @@ describe("instance identity and scoped adapter events", () => {
           strategy: "slices",
         },
         storeId: "slice-clear-scope",
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
     await store.ready;

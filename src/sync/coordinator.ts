@@ -13,6 +13,8 @@ import type {
   NusmSyncSourceContext,
   NusmSyncSourceInput,
   NusmSyncStatus,
+  NusmSyncValidationResult,
+  NusmSyncValidator,
 } from "./types.js";
 
 type PendingWrite = {
@@ -28,6 +30,8 @@ export interface NusmSyncCoordinatorOptions<TState = unknown> {
   onError?: (error: unknown) => void;
   onStatus?: (status: NusmSyncStatus) => void;
   optimistic?: boolean;
+  validator?: NusmSyncValidator<TState>;
+  onRejected?: (error: Error, event: NusmSyncEvent<TState>) => void;
   onSnapshotRequest?: (
     event: NusmSyncEvent<TState>,
   ) => TState | Promise<TState>;
@@ -70,6 +74,23 @@ const asSources = <TState>(
 
 const toError = (error: unknown): Error =>
   error instanceof Error ? error : new Error(String(error));
+
+const applyValidationResult = <TState>(
+  event: NusmSyncEvent<TState>,
+  result: NusmSyncValidationResult<TState>,
+): NusmSyncEvent<TState> | undefined => {
+  if (typeof result === "boolean") return result ? event : undefined;
+  if (
+    result === null ||
+    typeof result !== "object" ||
+    typeof result.ok !== "boolean" ||
+    !result.ok
+  )
+    return undefined;
+  return Object.hasOwn(result, "value")
+    ? { ...event, state: result.value as TState }
+    : event;
+};
 
 const createSyncInstanceId = (): string => {
   const uuid = globalThis.crypto?.randomUUID?.();
@@ -212,7 +233,12 @@ export const createNusmSyncCoordinator = <TState>(
     string,
     { counter: number; epoch: string }
   >();
+  const rejectedRevisionProgress = new Map<
+    string,
+    { counter: number; epoch: string }
+  >();
   const snapshotProgress = new Set<string>();
+  const rejectedCandidates = new Set<string>();
   const pruneOldest = <T>(entries: Map<string, T>, limit: number) => {
     while (entries.size > limit) {
       const oldest = entries.keys().next().value;
@@ -268,7 +294,19 @@ export const createNusmSyncCoordinator = <TState>(
     allowEpochBaseline: boolean,
   ) => {
     const epoch = revision.epoch ?? "";
-    const previous = revisionProgress.get(revision.senderId);
+    const accepted = revisionProgress.get(revision.senderId);
+    const rejected = rejectedRevisionProgress.get(revision.senderId);
+    const previous =
+      accepted && rejected
+        ? isAheadOfClock(
+            accepted.epoch,
+            accepted.counter,
+            rejected.epoch,
+            rejected.counter,
+          )
+          ? rejected
+          : accepted
+        : (accepted ?? rejected);
     return previous
       ? followsRevision(previous, revision)
       : allowsFirstRevision(
@@ -326,6 +364,50 @@ export const createNusmSyncCoordinator = <TState>(
     } catch {
       // Error reporters are observers and must never break event delivery.
     }
+  };
+  const validateCandidate = async (
+    event: NusmSyncEvent<TState>,
+  ): Promise<NusmSyncEvent<TState> | undefined> => {
+    if (!options.validator || !Object.hasOwn(event, "state")) return event;
+    const context = {
+      kind: event.kind,
+      revision: event.revision,
+      source: event.sourceId,
+      storeId: options.storeId,
+    } as const;
+    const rejectionKey = `${event.sourceId}:${event.kind}:${event.requestId ?? event.eventId}`;
+    const reject = (error: unknown) => {
+      if (rejectedCandidates.has(rejectionKey)) return;
+      rejectedCandidates.add(rejectionKey);
+      while (rejectedCandidates.size > MAX_TRACKED_PROTOCOL_IDS)
+        rejectedCandidates.delete(
+          rejectedCandidates.values().next().value ?? "",
+        );
+      const rejection = toError(error);
+      if (event.revision) {
+        rejectedRevisionProgress.set(event.revision.senderId, {
+          counter: event.revision.counter,
+          epoch: event.revision.epoch ?? "",
+        });
+        pruneOldest(rejectedRevisionProgress, MAX_TRACKED_PROTOCOL_IDS);
+      }
+      try {
+        options.onRejected?.(rejection, event);
+      } catch (observerError) {
+        report(observerError);
+      }
+    };
+    let result: NusmSyncValidationResult<TState>;
+    try {
+      result = await options.validator(event.state, context);
+    } catch (error) {
+      reject(error);
+      return undefined;
+    }
+    const validated = applyValidationResult(event, result);
+    if (validated) return validated;
+    reject(new Error("Synchronization validator rejected state."));
+    return undefined;
   };
   const setStatus = (next: NusmSyncStatus) => {
     status = next;
@@ -634,8 +716,10 @@ export const createNusmSyncCoordinator = <TState>(
     const duplicate = appliedSnapshots.has(requestId);
     if (!duplicate && !validateRevision(event)) return;
     if (!duplicate) {
-      await options.onEvent(event);
-      commitEventRevision(event);
+      const validated = await validateCandidate(event);
+      if (!validated) return;
+      await options.onEvent(validated);
+      commitEventRevision(validated);
       rememberAppliedSnapshot(requestId);
     }
     await publishControl({
@@ -725,8 +809,10 @@ export const createNusmSyncCoordinator = <TState>(
       if (incoming.kind === "update") {
         const event = normalizeIncomingRevision(incoming);
         if (!event) return;
-        await options.onEvent(event);
-        commitEventRevision(event);
+        const validated = await validateCandidate(event);
+        if (!validated) return;
+        await options.onEvent(validated);
+        commitEventRevision(validated);
         return;
       }
       if (await handleProtocolEvent(incoming)) return;

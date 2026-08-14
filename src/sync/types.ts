@@ -42,7 +42,8 @@ export interface NusmSyncEvent<TState = unknown> {
 
 export interface NusmSyncContext {
   storeId: string;
-  sourceId: string;
+  /** Stable identity of the source that supplied the candidate. */
+  source: string;
   kind: NusmSyncEventKind;
   revision?: NusmSyncRevision;
 }
@@ -54,15 +55,17 @@ export interface NusmSyncSourceContext {
   onError?: (error: unknown) => void;
 }
 
-export type NusmSyncValidationResult =
+export type NusmSyncValidationResult<TState = unknown> =
   | boolean
-  | { ok: boolean; value?: unknown };
+  | { ok: boolean; value?: TState };
 
 /** Validates or transforms a candidate before a remote event reaches memory. */
-export type NusmSyncValidator<_TState = unknown> = (
+export type NusmSyncValidator<TState = unknown> = (
   candidate: unknown,
   context: NusmSyncContext,
-) => NusmSyncValidationResult | Promise<NusmSyncValidationResult>;
+) =>
+  | NusmSyncValidationResult<TState>
+  | Promise<NusmSyncValidationResult<TState>>;
 
 export type NusmSyncStatus =
   | "disabled"

@@ -127,6 +127,10 @@ describe("panel mutations", () => {
         devtools: true,
         persist: { strategy: "entire" },
         storeId: "echo",
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
     await store.ready;

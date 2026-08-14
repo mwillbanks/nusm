@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { configureNusm, createNusmStore } from "../../src/index.js";
 import { createNusmSyncCoordinator } from "../../src/sync/coordinator.js";
-import type { NusmSyncEvent } from "../../src/sync/types.js";
+import type { NusmSyncContext, NusmSyncEvent } from "../../src/sync/types.js";
 
 type TestEvent = NusmSyncEvent<unknown>;
 type PublishedEvent = { from: string; event: TestEvent };
+const validateSyncCandidate = (candidate: unknown, context: NusmSyncContext) =>
+  context.source.length > 0 &&
+  typeof candidate === "object" &&
+  candidate !== null;
 
 const updatesFrom = (published: PublishedEvent[], from: string) =>
   published.filter(
@@ -102,7 +106,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(9, 30),
         persist: { strategy: "entire" },
         storeId: "authority",
-        sync: { source: bus.source("leader") },
+        sync: {
+          source: bus.source("leader"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await new Promise((resolve) => setTimeout(resolve, 2));
@@ -112,7 +119,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(2),
         persist: { strategy: "entire" },
         storeId: "authority",
-        sync: { source: bus.source("follower") },
+        sync: {
+          source: bus.source("follower"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await Promise.all([leader.ready, follower.ready]);
@@ -130,7 +140,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(42, 4200),
         persist: { strategy: "entire" },
         storeId: "heartbeat-authority",
-        sync: { source: bus.source("heartbeat-leader") },
+        sync: {
+          source: bus.source("heartbeat-leader"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await wait(10);
@@ -140,10 +153,14 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(0),
         persist: { strategy: "entire" },
         storeId: "heartbeat-authority",
-        sync: { source: bus.source("heartbeat-follower") },
+        sync: {
+          source: bus.source("heartbeat-follower"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await Promise.all([leader.ready, follower.ready]);
+    await wait(25);
     expect(
       bus.published.filter(({ event }) => event.hydration === "hydrating")
         .length,
@@ -162,7 +179,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(42),
         persist: { strategy: "entire" },
         storeId: "late-join",
-        sync: { source: bus.source("late-leader") },
+        sync: {
+          source: bus.source("late-leader"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await leader.ready;
@@ -173,7 +193,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(0),
         persist: { strategy: "entire" },
         storeId: "late-join",
-        sync: { source: bus.source("late-follower") },
+        sync: {
+          source: bus.source("late-follower"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await follower.ready;
@@ -187,11 +210,17 @@ describe("synchronization coordinator convergence", () => {
     bus.reverse("left");
     const left = createNusmStore(
       { value: 0 },
-      { storeId: "concurrent", sync: { source: bus.source("left") } },
+      {
+        storeId: "concurrent",
+        sync: { source: bus.source("left"), validator: validateSyncCandidate },
+      },
     );
     const right = createNusmStore(
       { value: 0 },
-      { storeId: "concurrent", sync: { source: bus.source("right") } },
+      {
+        storeId: "concurrent",
+        sync: { source: bus.source("right"), validator: validateSyncCandidate },
+      },
     );
     await Promise.all([left.ready, right.ready]);
     left.setState({ value: 1 });
@@ -208,14 +237,20 @@ describe("synchronization coordinator convergence", () => {
       { value: 0 },
       {
         storeId: "identity-collision",
-        sync: { source: bus.source("identity-left") },
+        sync: {
+          source: bus.source("identity-left"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     const right = createNusmStore(
       { value: 0 },
       {
         storeId: "identity-collision",
-        sync: { source: bus.source("identity-right") },
+        sync: {
+          source: bus.source("identity-right"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await Promise.all([left.ready, right.ready]);
@@ -259,7 +294,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(42, 20),
         persist: { strategy: "entire" },
         storeId: "retry-request-snapshot",
-        sync: { source: bus.source("leader") },
+        sync: {
+          source: bus.source("leader"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await wait(2);
@@ -269,7 +307,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(0),
         persist: { strategy: "entire" },
         storeId: "retry-request-snapshot",
-        sync: { source: bus.source("follower") },
+        sync: {
+          source: bus.source("follower"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await Promise.all([leader.ready, follower.ready]);
@@ -282,6 +323,88 @@ describe("synchronization coordinator convergence", () => {
     ).toHaveLength(2);
     await leader.dispose();
     await follower.dispose();
+  });
+
+  test("rejected snapshots retry without acknowledgement or duplicate application", async () => {
+    const bus = createBus();
+    bus.drop((_from, event) => event.kind === "snapshot");
+    const target = new EventTarget();
+    const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
+    globalThis.__TANSTACK_EVENT_TARGET__ = target;
+    target.addEventListener("tanstack-connect", () =>
+      target.dispatchEvent(new CustomEvent("tanstack-connect-success")),
+    );
+    let rejectionEvents = 0;
+    target.addEventListener("tanstack-dispatch-event", (event) => {
+      const detail = (event as CustomEvent).detail as {
+        type?: string;
+        payload?: { type?: string };
+      };
+      if (
+        detail.type === "nusm:event" &&
+        detail.payload?.type === "synchronization_rejected"
+      )
+        rejectionEvents += 1;
+    });
+    const leader = createNusmStore(
+      { value: 42 },
+      {
+        adapter: adapter(42),
+        persist: { strategy: "entire" },
+        storeId: "rejected-snapshot",
+        sync: {
+          source: bus.source("rejected-leader"),
+          validator: validateSyncCandidate,
+        },
+      },
+    );
+    await leader.ready;
+    const errors: unknown[] = [];
+    const follower = createNusmStore(
+      { value: 0 },
+      {
+        adapter: adapter(0),
+        devtools: true,
+        onError: (error) => errors.push(error),
+        persist: { strategy: "entire" },
+        storeId: "rejected-snapshot",
+        sync: {
+          optimistic: true,
+          source: bus.source("rejected-follower"),
+          validator: () => false,
+        },
+      },
+    );
+    await follower.ready;
+    await wait(800);
+    expect(follower.state).toEqual({ value: 0 });
+    expect(
+      bus.published.filter(({ event }) => event.kind === "snapshot").length,
+    ).toBeGreaterThanOrEqual(2);
+    const servedSnapshotRequestIds = new Set(
+      bus.published
+        .filter(
+          ({ from, event }) =>
+            from === "rejected-leader" &&
+            event.kind === "snapshot" &&
+            event.requestId,
+        )
+        .map(({ event }) => event.requestId),
+    );
+    expect(
+      bus.published.filter(
+        ({ from, event }) =>
+          from === "rejected-follower" &&
+          event.kind === "ack" &&
+          event.requestId &&
+          servedSnapshotRequestIds.has(event.requestId),
+      ),
+    ).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(rejectionEvents).toBe(1);
+    await leader.dispose();
+    await follower.dispose();
+    globalThis.__TANSTACK_EVENT_TARGET__ = originalTarget;
   });
 
   test("retransmits a snapshot after the first acknowledgement is lost", async () => {
@@ -299,7 +422,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(42, 20),
         persist: { strategy: "entire" },
         storeId: "retry-ack",
-        sync: { source: bus.source("leader-ack") },
+        sync: {
+          source: bus.source("leader-ack"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await wait(2);
@@ -309,7 +435,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(0),
         persist: { strategy: "entire" },
         storeId: "retry-ack",
-        sync: { source: bus.source("follower-ack") },
+        sync: {
+          source: bus.source("follower-ack"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await Promise.all([leader.ready, follower.ready]);
@@ -326,7 +455,13 @@ describe("synchronization coordinator convergence", () => {
     const startedAt = Date.now();
     const store = createNusmStore(
       { value: 1 },
-      { storeId: "strict-discovery", sync: { source: bus.source("isolated") } },
+      {
+        storeId: "strict-discovery",
+        sync: {
+          source: bus.source("isolated"),
+          validator: validateSyncCandidate,
+        },
+      },
     );
     let settled = false;
     void store.ready.then(() => {
@@ -349,7 +484,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(42, 30),
         persist: { strategy: "entire" },
         storeId: "optimistic",
-        sync: { source: bus.source("optimistic-leader") },
+        sync: {
+          source: bus.source("optimistic-leader"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await wait(2);
@@ -359,7 +497,11 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(0),
         persist: { strategy: "entire" },
         storeId: "optimistic",
-        sync: { optimistic: true, source: bus.source("optimistic-follower") },
+        sync: {
+          optimistic: true,
+          source: bus.source("optimistic-follower"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await follower.ready;
@@ -392,7 +534,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(0, 100),
         persist: { strategy: "entire" },
         storeId: "strict-queue",
-        sync: { source: bus.source("strict-queue") },
+        sync: {
+          source: bus.source("strict-queue"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     store.setState({ value: 1 });
@@ -423,7 +568,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(42, 80),
         persist: { strategy: "entire" },
         storeId: "strict-follower-queue",
-        sync: { source: bus.source("strict-follower-leader") },
+        sync: {
+          source: bus.source("strict-follower-leader"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await leader.ready;
@@ -435,7 +583,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(0, 30),
         persist: { strategy: "entire" },
         storeId: "strict-follower-queue",
-        sync: { source: bus.source("strict-follower-follower") },
+        sync: {
+          source: bus.source("strict-follower-follower"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     const observed: number[] = [];
@@ -471,7 +622,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(42, 80),
         persist: { strategy: "entire" },
         storeId: "callback-replay-queue",
-        sync: { source: bus.source("callback-replay-leader") },
+        sync: {
+          source: bus.source("callback-replay-leader"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await leader.ready;
@@ -494,7 +648,7 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(0, 30),
         persist: { strategy: "entire" },
         storeId: "callback-replay-queue",
-        sync: { source: followerSource },
+        sync: { source: followerSource, validator: validateSyncCandidate },
       },
     );
     let callbackUpdateSent = false;
@@ -534,7 +688,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(0, 100),
         persist: { strategy: "entire" },
         storeId: "queue-overflow",
-        sync: { source: bus.source("queue-overflow") },
+        sync: {
+          source: bus.source("queue-overflow"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     for (let value = 1; value <= 300; value += 1) store.setState({ value });
@@ -589,7 +746,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(42, 100),
         persist: { strategy: "entire" },
         storeId: "forged-protocol",
-        sync: { source: bus.source("forged-leader") },
+        sync: {
+          source: bus.source("forged-leader"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await wait(10);
@@ -599,7 +759,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(0),
         persist: { strategy: "entire" },
         storeId: "forged-protocol",
-        sync: { source: bus.source("forged-follower") },
+        sync: {
+          source: bus.source("forged-follower"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     const followerId = await (async () => {
@@ -649,7 +812,10 @@ describe("synchronization coordinator convergence", () => {
     const manual = createManualSource();
     const store = createNusmStore(
       { value: 0 },
-      { storeId: "revision-poison", sync: { source: manual.source } },
+      {
+        storeId: "revision-poison",
+        sync: { source: manual.source, validator: validateSyncCandidate },
+      },
     );
     await store.ready;
     const emit = (
@@ -716,7 +882,10 @@ describe("synchronization coordinator convergence", () => {
     const manual = createManualSource();
     const store = createNusmStore(
       { value: 0 },
-      { storeId: "metadata-flood", sync: { source: manual.source } },
+      {
+        storeId: "metadata-flood",
+        sync: { source: manual.source, validator: validateSyncCandidate },
+      },
     );
     await store.ready;
     for (let index = 0; index < 64; index += 1)
@@ -842,7 +1011,10 @@ describe("synchronization coordinator convergence", () => {
     const manual = createManualSource();
     const store = createNusmStore(
       { value: 0 },
-      { storeId: "revision-rollover", sync: { source: manual.source } },
+      {
+        storeId: "revision-rollover",
+        sync: { source: manual.source, validator: validateSyncCandidate },
+      },
     );
     await store.ready;
     manual.emit({
@@ -892,7 +1064,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(42, 10),
         persist: { strategy: "entire" },
         storeId: "revision-rollover-authorized",
-        sync: { source: bus.source("rollover-leader") },
+        sync: {
+          source: bus.source("rollover-leader"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await wait(2);
@@ -902,7 +1077,10 @@ describe("synchronization coordinator convergence", () => {
         adapter: adapter(0),
         persist: { strategy: "entire" },
         storeId: "revision-rollover-authorized",
-        sync: { source: bus.source("rollover-follower") },
+        sync: {
+          source: bus.source("rollover-follower"),
+          validator: validateSyncCandidate,
+        },
       },
     );
     await Promise.all([leader.ready, follower.ready]);

@@ -157,6 +157,10 @@ describe("panel state", () => {
         devtools: true,
         persist: { slices: [slice("a"), slice("b")], strategy: "slices" },
         storeId: "slice-health",
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
     await store.ready;

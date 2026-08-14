@@ -4,11 +4,39 @@ import {
   createLocalStorageAdapter,
   createNusmStore,
   createSessionStorageAdapter,
+  type NusmSyncContext,
 } from "nusm";
 
 configureNusm({ crossTab: true });
 
 type Task = { id: string; title: string; done: boolean; owner: string };
+const isRecord = (candidate: unknown): candidate is Record<string, unknown> =>
+  typeof candidate === "object" &&
+  candidate !== null &&
+  !Array.isArray(candidate);
+const validatePreferencesCandidate = (
+  candidate: unknown,
+  context: NusmSyncContext,
+) =>
+  context.source.length > 0 &&
+  isRecord(candidate) &&
+  typeof candidate.accent === "string" &&
+  typeof candidate.density === "string";
+const validateSessionCandidate = (
+  candidate: unknown,
+  context: NusmSyncContext,
+) =>
+  context.source.length > 0 &&
+  isRecord(candidate) &&
+  typeof candidate.activeView === "string" &&
+  typeof candidate.drafts === "number";
+const validateActivityCandidate = (
+  candidate: unknown,
+  context: NusmSyncContext,
+) =>
+  context.source.length > 0 &&
+  isRecord(candidate) &&
+  Array.isArray(candidate.events);
 
 export const workspaceStore = createNusmStore(
   {
@@ -41,6 +69,7 @@ export const preferencesStore = createNusmStore(
     devtools: { name: "Preferences" },
     persist: { strategy: "entire" },
     storeId: "preferences",
+    sync: { validator: validatePreferencesCandidate },
   },
 );
 
@@ -52,6 +81,7 @@ export const sessionStore = createNusmStore(
     devtools: { name: "Live Session" },
     persist: { strategy: "entire" },
     storeId: "live-session",
+    sync: { validator: validateSessionCandidate },
   },
 );
 
@@ -81,6 +111,7 @@ export const activityStore = createNusmStore(
     devtools: { name: "Activity Archive" },
     persist: { strategy: "entire" },
     storeId: "activity-archive",
+    sync: { validator: validateActivityCandidate },
   },
 );
 

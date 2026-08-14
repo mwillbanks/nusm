@@ -104,6 +104,7 @@ export type NusmEventType =
   | "synchronization_remote_applied"
   | "synchronization_unavailable"
   | "synchronization_protocol_error"
+  | "synchronization_rejected"
   | "synchronization_disposed"
   | "devtools_command"
   | "devtools_command_error"

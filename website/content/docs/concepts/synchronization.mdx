@@ -27,8 +27,22 @@ const source = createBroadcastChannelSyncSource({
   ),
 })
 
-configureNusm({ sync: { source } })
+configureNusm({
+  sync: {
+    source,
+    validator: (candidate) => {
+      if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate))
+        return false
+      return typeof (candidate as { count?: unknown }).count === "number"
+    },
+  },
+})
 ```
+
+Every configured source requires a validator. The validator receives the
+candidate and `{ storeId, source, kind, revision }`; return `false` to reject
+it, or `{ ok: true, value }` to transform it before memory or persistence.
+Store-specific `sync.validator` values override the global validator.
 
 Global sources auto-enable stores with an explicit `storeId`. Use `sync: false`
 to opt out one store, or provide a store-specific source. Persistence and

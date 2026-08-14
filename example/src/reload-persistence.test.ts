@@ -5,7 +5,17 @@ import {
   createLocalStorageAdapter,
   createNusmStore,
   createSessionStorageAdapter,
+  type NusmSyncContext,
 } from "nusm";
+
+const validateExampleCandidate = (
+  candidate: unknown,
+  context: NusmSyncContext,
+) =>
+  context.source.length > 0 &&
+  typeof candidate === "object" &&
+  candidate !== null &&
+  !Array.isArray(candidate);
 
 const createLifecycle = () => ({
   activity: createNusmStore(
@@ -18,6 +28,7 @@ const createLifecycle = () => ({
       }),
       persist: { strategy: "entire" },
       storeId: "reload-activity",
+      sync: { validator: validateExampleCandidate },
     },
   ),
   preferences: createNusmStore(
@@ -26,6 +37,7 @@ const createLifecycle = () => ({
       adapter: createLocalStorageAdapter({ pacer: false }),
       persist: { strategy: "entire" },
       storeId: "reload-preferences",
+      sync: { validator: validateExampleCandidate },
     },
   ),
   session: createNusmStore(
@@ -34,6 +46,7 @@ const createLifecycle = () => ({
       adapter: createSessionStorageAdapter({ pacer: false }),
       persist: { strategy: "entire" },
       storeId: "reload-session",
+      sync: { validator: validateExampleCandidate },
     },
   ),
 });

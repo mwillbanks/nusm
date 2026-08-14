@@ -1,8 +1,13 @@
-import { beforeEach, describe, expect, test } from "bun:test";
-import type { NusmSyncEvent } from "../../src/index.js";
-import { createBroadcastChannelSyncSource } from "../../src/index.js";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import {
+  configureNusm,
+  createBroadcastChannelSyncSource,
+  createNusmStore,
+  type NusmSyncEvent,
+} from "../../src/index.js";
 import { createHmacKey, signEnvelope } from "../../src/sync/protocol.js";
 import { FakeBroadcastChannel } from "../helpers/fake-broadcast-channel.js";
+import { createMemoryAdapter } from "../helpers/memory-adapter.js";
 
 const TestBroadcastChannel = FakeBroadcastChannel;
 
@@ -25,7 +30,65 @@ beforeEach(() => {
   TestBroadcastChannel.reset();
 });
 
+afterEach(() => configureNusm({}));
+
 describe.serial("authenticated BroadcastChannel synchronization", () => {
+  test("applies one BroadcastChannel update and matching adapter observation once", async () => {
+    const storeId = "broadcast-adapter-once";
+    const sharedKey = key();
+    const source = createBroadcastChannelSyncSource({
+      key: sharedKey,
+      namespace: storeId,
+    });
+    const peer = createBroadcastChannelSyncSource({
+      key: sharedKey,
+      namespace: storeId,
+    });
+    const memory = createMemoryAdapter({ pacer: false, withSubscribe: true });
+    const store = createNusmStore(
+      { value: 0 },
+      {
+        adapter: memory.adapter,
+        persist: { strategy: "entire" },
+        storeId,
+        sync: {
+          source,
+          validator: (candidate) =>
+            typeof candidate === "object" &&
+            candidate !== null &&
+            typeof (candidate as { value?: unknown }).value === "number",
+        },
+      },
+    );
+    await store.ready;
+    await peer.start(() => undefined, { storeId });
+    memory.setItemCalls.length = 0;
+    let transitions = 0;
+    const unsubscribe = store.subscribe(() => {
+      transitions += 1;
+    });
+    const keyName = `nusm:${storeId}:entire`;
+    await peer.publish({
+      eventId: "broadcast-adapter-once",
+      kind: "update",
+      revision: { counter: 1, senderId: "broadcast-peer" },
+      sourceId: "broadcast-peer",
+      state: { value: 4 },
+      storeId,
+    });
+    await wait();
+    memory.store.set(keyName, { value: 4 });
+    memory.emit({ key: keyName, type: "set" });
+    await wait();
+    expect(store.state).toEqual({ value: 4 });
+    expect(transitions).toBe(1);
+    expect(memory.setItemCalls).toHaveLength(1);
+    if (typeof unsubscribe === "function") unsubscribe();
+    else unsubscribe.unsubscribe();
+    await store.dispose();
+    await peer.dispose?.({ storeId });
+  });
+
   test("single-flights concurrent starts for one store", async () => {
     const source = createBroadcastChannelSyncSource({
       key: key(),

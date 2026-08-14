@@ -6,8 +6,19 @@ import {
   createNusmStore,
   createSessionStorageAdapter,
   type NusmAdapter,
+  type NusmSyncContext,
   type NusmSyncSource,
 } from "nusm";
+
+const validateExampleCandidate = (
+  candidate: unknown,
+  context: NusmSyncContext,
+) =>
+  context.source.length > 0 &&
+  typeof candidate === "object" &&
+  candidate !== null &&
+  !Array.isArray(candidate) &&
+  typeof (candidate as { value?: unknown }).value === "number";
 
 const createExampleSyncSource = (): NusmSyncSource => {
   const listeners = new Set<Parameters<NusmSyncSource["start"]>[0]>();
@@ -31,11 +42,19 @@ const verifyAdapter = async (
   const sync = createExampleSyncSource();
   const first = createNusmStore(
     { value: 0 },
-    { adapter: createAdapter?.(), storeId, sync: { source: sync } },
+    {
+      adapter: createAdapter?.(),
+      storeId,
+      sync: { source: sync, validator: validateExampleCandidate },
+    },
   );
   const second = createNusmStore(
     { value: 0 },
-    { adapter: createAdapter?.(), storeId, sync: { source: sync } },
+    {
+      adapter: createAdapter?.(),
+      storeId,
+      sync: { source: sync, validator: validateExampleCandidate },
+    },
   );
   await Promise.all([first.ready, second.ready]);
   await new Promise((resolve) => setTimeout(resolve, 10));

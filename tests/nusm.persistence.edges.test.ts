@@ -73,6 +73,10 @@ describe("nusm persistence edges", () => {
         devtools: true,
         persist: { strategy: "entire" },
         storeId: "slow-entire",
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
     await entire.ready;
@@ -104,6 +108,10 @@ describe("nusm persistence edges", () => {
         devtools: true,
         persist: { slices: [slice], strategy: "slices" },
         storeId: "slow-slice",
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
     await sliced.ready;

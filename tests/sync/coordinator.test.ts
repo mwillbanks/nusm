@@ -1,12 +1,20 @@
 import { describe, expect, test } from "bun:test";
 import { configureNusm, createNusmStore } from "../../src/index.js";
 import { createNusmSyncCoordinator } from "../../src/sync/coordinator.js";
-import type { NusmSyncSource, NusmSyncStatus } from "../../src/sync/types.js";
+import type {
+  NusmSyncContext,
+  NusmSyncSource,
+  NusmSyncStatus,
+} from "../../src/sync/types.js";
 
 const source = (): NusmSyncSource => ({
   publish: () => undefined,
   start: () => undefined,
 });
+const validateSyncCandidate = (candidate: unknown, context: NusmSyncContext) =>
+  context.source.length > 0 &&
+  typeof candidate === "object" &&
+  candidate !== null;
 
 describe("synchronization coordinator", () => {
   test("auto-enables a configured source for identified stores", async () => {
@@ -18,7 +26,9 @@ describe("synchronization coordinator", () => {
         starts += 1;
       },
     };
-    configureNusm({ sync: { source: configured } });
+    configureNusm({
+      sync: { source: configured, validator: validateSyncCandidate },
+    });
     const enabled = createNusmStore({ value: 0 }, { storeId: "global-source" });
     const disabled = createNusmStore(
       { value: 0 },

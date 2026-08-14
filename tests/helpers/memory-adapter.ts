@@ -5,6 +5,7 @@ type MemoryAdapterOptions = {
   errorKeys?: string[];
   pacer?: NusmPacerConfig;
   setItemErrorKeys?: string[];
+  withSubscribe?: boolean;
   withGetAllKeys?: boolean;
   withResolveKey?: boolean;
 };
@@ -71,10 +72,19 @@ export const createMemoryAdapter = (options?: MemoryAdapterOptions) => {
       options?.withResolveKey === false ? undefined : resolveMemoryKey,
     setItem: (key, value) =>
       writeMemoryValue(key, value, store, setItemErrorKeys, setItemCalls),
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
+    ...(options?.withSubscribe
+      ? {
+          subscribe: (
+            listener: (event: {
+              key?: string;
+              type: "set" | "remove" | "clear";
+            }) => void,
+          ) => {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+          },
+        }
+      : {}),
   };
 
   return {

@@ -105,7 +105,17 @@ const source = createBroadcastChannelSyncSource({
   namespace: 'my-app',
   key: keyMaterial,
 })
-configureNusm({ sync: { source } })
+configureNusm({
+  sync: {
+    source,
+    validator: (candidate) => {
+      // Validate the shared-counter shape before it reaches store memory.
+      if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate))
+        return false
+      return typeof (candidate as { count?: unknown }).count === 'number'
+    },
+  },
+})
 const shared = createNusmStore({ count: 0 }, { storeId: 'shared-counter' })
 const local = createNusmStore(
   { draft: '' },

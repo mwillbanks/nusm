@@ -134,7 +134,15 @@ describe("storage adapter", () => {
     };
     const disabled = createNusmStore(
       { value: 0 },
-      { adapter, persist: { strategy: "entire" }, storeId: "disabled-events" },
+      {
+        adapter,
+        persist: { strategy: "entire" },
+        storeId: "disabled-events",
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
+      },
     );
     const enabled = createNusmStore(
       { value: 0 },
@@ -142,6 +150,10 @@ describe("storage adapter", () => {
         adapter,
         persist: { strategy: "entire" },
         storeId: "enabled-events",
+        sync: {
+          validator: (candidate) =>
+            typeof candidate === "object" && candidate !== null,
+        },
       },
     );
     await Promise.all([disabled.ready, enabled.ready]);

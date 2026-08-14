@@ -49,6 +49,10 @@ test("round-trips an entire persisted snapshot with a custom resolved key", asyn
       devtools: true,
       persist: { strategy: "entire" },
       storeId: "counter",
+      sync: {
+        validator: (candidate) =>
+          typeof candidate === "object" && candidate !== null,
+      },
     },
   );
   await store.ready;
