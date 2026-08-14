@@ -157,6 +157,9 @@ export function createNusmStore<TState>(
         storeSync?.source ??
         globalSync?.sources ??
         globalSync?.source);
+  const hasSyncSources = Array.isArray(syncSources)
+    ? syncSources.length > 0
+    : Boolean(syncSources);
   const syncValidator = (
     storeSync === false
       ? globalSync?.validator
@@ -166,12 +169,12 @@ export function createNusmStore<TState>(
     storeSync === false
       ? undefined
       : (storeSync?.optimistic ?? globalSync?.optimistic);
-  if ((adapter || syncSources) && !storeId) {
+  if ((adapter || hasSyncSources) && !storeId) {
     throw new Error(
       "nusm requires an explicit storeId when persistence or synchronization is enabled.",
     );
   }
-  if ((syncSources || adapter?.subscribe) && !syncValidator) {
+  if ((hasSyncSources || adapter?.subscribe) && !syncValidator) {
     throw new Error(
       "nusm requires an explicit synchronization validator for remote inputs.",
     );
@@ -191,7 +194,7 @@ export function createNusmStore<TState>(
     );
   let lastFlushAt: number | undefined;
   const lifecycle = createStoreLifecycle();
-  let synchronizationStatus: NusmSyncStatus = syncSources
+  let synchronizationStatus: NusmSyncStatus = hasSyncSources
     ? "pending"
     : "disabled";
   let syncRevision: NusmSyncRevision = {
@@ -871,7 +874,7 @@ export function createNusmStore<TState>(
       await syncCoordinator.waitForConvergence();
     assertHydrationCurrent(generation);
     for (const event of deferredSyncEvents.splice(0)) {
-      await syncCoordinator?.enqueue(event);
+      await applySyncStateEvent(event);
       assertHydrationCurrent(generation);
     }
     assertHydrationCurrent(generation);

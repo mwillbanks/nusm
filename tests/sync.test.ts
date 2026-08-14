@@ -41,6 +41,60 @@ const createSource = () => {
 afterEach(() => configureNusm({}));
 
 describe("synchronization communication", () => {
+  test("treats an explicitly empty source list as disabled", async () => {
+    const store = createNusmStore({ value: 0 }, { sync: { sources: [] } });
+
+    await store.ready;
+
+    expect(store.isReady).toBe(true);
+    expect(store.state).toEqual({ value: 0 });
+    await store.dispose();
+  });
+
+  test("applies a validated update received during hydration", async () => {
+    const source = createSource();
+    let resolveHydration!: (value: unknown) => void;
+    let markHydrationStarted!: () => void;
+    const hydrationStarted = new Promise<void>((resolve) => {
+      markHydrationStarted = resolve;
+    });
+    const store = createNusmStore(
+      { value: 0 },
+      {
+        adapter: {
+          getItem: () =>
+            new Promise<unknown>((resolve) => {
+              resolveHydration = resolve;
+              markHydrationStarted();
+            }),
+          name: "delayed-hydration",
+          pacer: false,
+          removeItem: () => undefined,
+          setItem: () => undefined,
+        },
+        persist: { strategy: "entire" },
+        storeId: "deferred-update",
+        sync: { source: source.source, validator: validateSyncCandidate },
+      },
+    );
+    await hydrationStarted;
+    source.emit({
+      eventId: "during-hydration",
+      kind: "update",
+      revision: { counter: 1, epoch: "0", senderId: "peer" },
+      sourceId: "peer",
+      state: { value: 42 },
+      storeId: "deferred-update",
+    });
+    await Promise.resolve();
+
+    resolveHydration(null);
+    await store.ready;
+
+    expect(store.state).toEqual({ value: 42 });
+    await store.dispose();
+  });
+
   test("requires validation for every effective remote input", () => {
     const { adapter } = createMemoryAdapter({ withSubscribe: true });
     expect(() =>
