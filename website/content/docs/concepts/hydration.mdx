@@ -23,7 +23,8 @@ store.hydration.overall
 store.hydration.byKey
 ```
 
-Possible states are `pending`, `hydrated`, `discarded`, `error`, and `not_configured`.
+Possible states are `pending`, `hydrated`, `discarded`, `error`, `cancelled`,
+and `not_configured`.
 
 ## Validate or transform data
 
@@ -86,6 +87,20 @@ Slice persistence does not call `merge`; each accepted value goes through that s
 When a configured value does not exist, nusm writes the valid initial entire-store value or selected slice before `ready` resolves. This creates a real adapter baseline for Devtools and later synchronization.
 
 Existing discarded or unreadable values are not silently overwritten by this first-run behavior.
+
+## Disposal and cancellation
+
+`dispose()` marks the store disposed synchronously before it starts asynchronous
+cleanup. Late hydration work therefore cannot mutate memory, persistence, or
+queued events after disposal begins. If hydration is still pending, `store.ready`
+rejects with a DOM `AbortError`, and the overall and pending per-key hydration
+states become `cancelled`.
+
+Disposal is asynchronous, idempotent, and returns one shared promise for every
+caller. It attempts every registered cleanup and persistence flush, even when an
+earlier cleanup fails. If one or more operations fail, the shared promise rejects
+once with an `AggregateError` containing the failures; each failure is also sent
+to `onError`.
 
 ## Error behavior
 

@@ -28,6 +28,15 @@ export const settings = createNusmStore(
     devtools: { name: "Settings", eventLogCap: 200 },
     persist: { strategy: "entire" },
     storeId: "settings",
+    sync: {
+      validator: (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        typeof (candidate as { profile?: unknown }).profile === "object" &&
+        (candidate as { profile?: { displayName?: unknown } }).profile !== null &&
+        typeof (candidate as { profile?: { displayName?: unknown } }).profile?.displayName === "string" &&
+        typeof (candidate as { shortcuts?: unknown }).shortcuts === "boolean",
+    },
   },
 )
 ```
@@ -78,7 +87,7 @@ instance id, so duplicate or normalization-colliding display names remain visibl
 and a mutation reaches exactly one store. Instance sequences are stored in a
 process-global symbol registry, preventing duplicated bundles and hot reloads from
 reusing an identity. The sidebar, summary, accessible name, and store search expose
-the runtime discriminator before a developer issues a mutation. The broadcast `refresh_all` command is
+the runtime discriminator before a developer issues a mutation. The `refresh_all` command is
 the sole identity exception. Unsafe prototype segments and invalid array gaps are
 rejected before state is changed.
 
@@ -87,10 +96,10 @@ affect only the configured adapter. Store snapshots publish producer-owned
 synchronization state, so the panel reports synchronized, divergent, pending, or
 unknown health without comparing lossy display projections.
 
-Snapshots report BroadcastChannel state as `active`, `disabled`, `unavailable`,
-`skipped_missing_identity`, or `disposed`. This status does not describe
-adapter-defined external events. The timeline records connection, remote
-application, unavailable transport, protocol failure, and disposal.
+Snapshots report synchronization state as `active`, `disabled`, `pending`,
+`unavailable`, or `disposed`. This status does not describe adapter-defined
+external events. The timeline records connection, remote application,
+unavailable transport, protocol failure, rejection, and disposal.
 
 On first hydration, a missing entire-store value or slice is written from the
 valid initial state before `ready` resolves. The resulting adapter tab contains

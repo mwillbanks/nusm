@@ -4,7 +4,7 @@ description: Persist the entire state object or isolate durable slices with expl
 icon: Layers
 ---
 
-Persistence is opt-in and belongs to each store, not to the application as a whole. Omit both `adapter` and `persist` for in-memory state. Add an adapter only when that store must cross a storage boundary; when configured, provide either a stable `storeId` or a non-empty Devtools name.
+Persistence is opt-in and belongs to each store, not to the application as a whole. Omit both `adapter` and `persist` for in-memory state. Add an adapter only when that store must cross a storage boundary; every persisted store requires a stable `storeId`.
 
 | Required lifetime | Store configuration |
 | --- | --- |
@@ -12,6 +12,14 @@ Persistence is opt-in and belongs to each store, not to the application as a who
 | Across reloads in the current tab | `createSessionStorageAdapter()` |
 | Across later browser sessions | `createLocalStorageAdapter()` or `createIndexDbAdapter()` |
 | Application-defined | Custom adapter |
+
+Every persisted store must provide a stable `storeId`. A Devtools display name
+never supplies persistence identity.
+
+Built-in Web Storage adapters subscribe to browser events. Configure a
+shape-specific `sync.validator` for those stores even when no browser
+synchronization source is enabled; the validator protects memory from
+adapter-originated external values.
 
 These choices can coexist. For example, ephemeral UI state can use an in-memory nusm store while session evidence uses session storage and preferences use local storage.
 
@@ -31,6 +39,17 @@ const store = createNusmStore(
     adapter: createLocalStorageAdapter(),
     persist: { strategy: "entire" },
     storeId: "workspace-preferences",
+    sync: {
+      validator: (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        typeof (candidate as { layout?: unknown }).layout === "string" &&
+        typeof (candidate as { filters?: unknown }).filters === "object" &&
+        (candidate as { filters?: { status?: unknown } }).filters !== null &&
+        ["all", "open", "closed"].includes(
+          String((candidate as { filters: { status?: unknown } }).filters.status),
+        ),
+    },
   },
 )
 ```
@@ -73,6 +92,18 @@ const store = createNusmStore<WorkspaceState>(
     adapter: createLocalStorageAdapter(),
     persist: { slices, strategy: "slices" },
     storeId: "workspace",
+    sync: {
+      validator: (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        typeof (candidate as { draft?: unknown }).draft === "string" &&
+        typeof (candidate as { filters?: unknown }).filters === "object" &&
+        (candidate as { filters?: unknown }).filters !== null &&
+        ["all", "open", "closed"].includes(
+          String((candidate as { filters: { status?: unknown } }).filters.status),
+        ) &&
+        typeof (candidate as { online?: unknown }).online === "boolean",
+    },
   },
 )
 ```
@@ -124,15 +155,14 @@ resolveKey: ({ storeId, kind, sliceKey }) =>
 
 nusm resolves each configured unit once and reuses that key for hydration, writes, external events, and Devtools commands.
 
-## Cross-tab persistence
+## Authenticated browser synchronization
 
-The optional BroadcastChannel transport is independent of adapter choice. After
-hydration, a new tab requests the current peer snapshot. Remote state updates
-memory and then uses the receiving store's adapter. Slice stores write only
-selected values that changed. Remote applications never rebroadcast themselves.
+Synchronization is an explicit, authenticated source configuration independent
+of adapter choice. After hydration, a peer can request a signed snapshot; remote
+state passes the receiving store's validator before memory or persistence changes.
+Slice stores write only selected values that changed, and remote applications do
+not rebroadcast themselves.
 
-Enable this transport globally before store creation or with `crossTab: true`
-on one store. It remains disabled by default. Adapter subscriptions continue to
-process adapter-defined external events without this option. Browser session
-storage remains tab-scoped storage, but enabled stores intentionally copy remote
-state into each receiving tab's session storage.
+See [Authenticated synchronization](/docs/concepts/synchronization) for runtime
+key provisioning, namespace and `storeId` requirements, validator overrides,
+optimistic readiness, bounded protocol behavior, and disposal.

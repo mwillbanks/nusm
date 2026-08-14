@@ -1,0 +1,51 @@
+---
+title: Synchronization API
+description: Authenticated source, validator, event, and protocol option contracts.
+icon: Radio
+---
+
+## `createBroadcastChannelSyncSource`
+
+```ts
+function createBroadcastChannelSyncSource<TState = unknown>(
+  options: BroadcastChannelSyncSourceOptions,
+): NusmSyncSource<TState>
+```
+
+<auto-type-table path="../../../../src/sync/broadcastChannel.ts" name="BroadcastChannelSyncSourceOptions" />
+
+`key` must be a non-extractable HMAC-SHA-256 `CryptoKey` with `sign` and
+`verify` usage, or at least 32 random bytes for runtime import. `namespace`
+and every store `storeId` contribute to an opaque channel capability. The
+optional limits can only reduce the built-in protocol maxima.
+
+<auto-type-table path="../../../../src/sync/broadcastChannel.ts" name="BroadcastSyncLimits" />
+
+## Global and store options
+
+<auto-type-table path="../../../../src/types.ts" name="NusmGlobalOptions" />
+
+<auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncOptions" />
+
+<auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncContext" />
+
+<auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncSourceContext" />
+
+<auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncValidator" />
+
+<auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncValidationResult" />
+
+<auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncSource" />
+
+<auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncEvent" />
+
+<auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncEventKind" />
+
+<auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncRevision" />
+
+<auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncStatus" />
+
+Every configured source requires a validator. Validators reject malformed or
+unsafe candidates before memory or adapter state changes. See [Authenticated
+synchronization](/docs/concepts/synchronization) for lifecycle, readiness,
+leader election, acknowledgements, limits, quarantine, and disposal behavior.

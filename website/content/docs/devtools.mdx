@@ -14,7 +14,9 @@ npm install --save-dev @tanstack/devtools @tanstack/devtools-utils @tanstack/rea
 
 ## Instrument a store
 
-Use `devtools: true` for the store id, or provide a display name and event-history cap:
+Use `devtools: true` for default instrumentation, or provide a display name and
+event-history cap. Persistence and synchronization still require an explicit
+`storeId`:
 
 ```ts
 import { createLocalStorageAdapter, createNusmStore } from "nusm"
@@ -26,13 +28,23 @@ export const settings = createNusmStore(
     devtools: { name: "Settings", eventLogCap: 200 },
     persist: { strategy: "entire" },
     storeId: "settings",
+    sync: {
+      validator: (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        typeof (candidate as { profile?: unknown }).profile === "object" &&
+        (candidate as { profile?: { displayName?: unknown } }).profile !== null &&
+        typeof (candidate as { profile?: { displayName?: unknown } }).profile?.displayName === "string" &&
+        typeof (candidate as { shortcuts?: unknown }).shortcuts === "boolean",
+    },
   },
 )
 ```
 
 `eventLogCap` defaults to 100, accepts positive safe integers, and is capped at 10,000.
 
-If persistence is enabled, use an explicit `storeId`. Without one, a non-empty Devtools name can provide the derived store id, but an explicit stable id is easier to treat as an application contract.
+Devtools names are display labels only. They never provide persistence or
+synchronization identity.
 
 ## Mount the plugin
 
@@ -108,12 +120,15 @@ Stores emit lifecycle events including:
 - `hydrate_start`, `hydrate_applied`, `hydrate_discarded`, and `hydrate_error`
 - `persist_scheduled`, `persist_flush_start`, `persist_flush_ok`, and `persist_flush_error`
 - `adapter_external_event`
-- `cross_tab_connected`, `cross_tab_remote_applied`, and `cross_tab_disposed`
-- `cross_tab_unavailable` and `cross_tab_protocol_error`
+- `synchronization_connected`, `synchronization_remote_applied`, and
+  `synchronization_disposed`
+- `synchronization_unavailable`, `synchronization_protocol_error`, and
+  `synchronization_rejected`
 - `devtools_command`, `devtools_command_error`, and `devtools_snapshot_error`
 
 Use the timeline to answer whether a value came from initial state, hydration, an application update, an external adapter event, or a Devtools command.
 
-Store details report BroadcastChannel state as `active`, `disabled`,
-`unavailable`, `skipped_missing_identity`, or `disposed`. Adapter-defined
-external events remain independent of this status.
+Store details report synchronization state as `active`, `disabled`, `pending`,
+`unavailable`, or `disposed`. Adapter-defined external events remain independent
+of this status. See [Authenticated synchronization](/docs/concepts/synchronization)
+for transport and security requirements.

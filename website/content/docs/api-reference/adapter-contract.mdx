@@ -35,9 +35,12 @@ type AdapterEventType = "set" | "remove" | "clear"
 Provide a key for `set` and `remove`. An adapter-wide `clear` can omit it.
 
 `subscribe` represents external adapter changes. nusm attaches it whenever the
-adapter provides it, independently of the optional BroadcastChannel transport.
-BroadcastChannel adds equivalent cross-tab behavior for IndexedDB and
-memory-only stores without requiring adapter-level signaling.
+adapter provides it. Authenticated browser synchronization is configured
+independently through `sync` and does not replace adapter subscriptions.
+Because built-in Web Storage adapters subscribe to browser events, persisted
+stores also require a shape-specific `sync.validator` even without a browser
+synchronization source. The validator protects memory from adapter-originated
+external values as well as authenticated peer updates.
 
 ## NusmPacerConfig
 

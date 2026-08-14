@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   createIndexDbAdapter,
   createLocalStorageAdapter,
+  createNusmStore,
   createSessionStorageAdapter,
 } from "nusm";
 import {
@@ -13,6 +14,65 @@ import {
 } from "./stores";
 
 describe("example adapter persistence", () => {
+  test("seeds real initial values in every configured browser adapter", async () => {
+    const localStore = createNusmStore(
+      { value: "local" },
+      {
+        adapter: createLocalStorageAdapter({ pacer: false }),
+        persist: { strategy: "entire" },
+        storeId: "baseline-local",
+        sync: false,
+      },
+    );
+    const sessionStore = createNusmStore(
+      { value: "session" },
+      {
+        adapter: createSessionStorageAdapter({ pacer: false }),
+        persist: { strategy: "entire" },
+        storeId: "baseline-session",
+        sync: false,
+      },
+    );
+    const indexedStore = createNusmStore(
+      { value: "indexed" },
+      {
+        adapter: createIndexDbAdapter({
+          dbName: "nusm-baseline-example",
+          pacer: false,
+          storeName: "activity",
+        }),
+        persist: { strategy: "entire" },
+        storeId: "baseline-indexed",
+        sync: false,
+      },
+    );
+    await Promise.all([
+      localStore.ready,
+      sessionStore.ready,
+      indexedStore.ready,
+    ]);
+    const local = createLocalStorageAdapter({ pacer: false });
+    const session = createSessionStorageAdapter({ pacer: false });
+    const indexed = createIndexDbAdapter({
+      dbName: "nusm-baseline-example",
+      pacer: false,
+      storeName: "activity",
+    });
+
+    expect(await local.getItem("nusm:baseline-local:entire")).not.toBeNull();
+    expect(
+      await session.getItem("nusm:baseline-session:entire"),
+    ).not.toBeNull();
+    expect(
+      await indexed.getItem("nusm:baseline-indexed:entire"),
+    ).not.toBeNull();
+    await Promise.all([
+      localStore.dispose(),
+      sessionStore.dispose(),
+      indexedStore.dispose(),
+    ]);
+  });
+
   test("persists independent local, session, and IndexedDB interactions", async () => {
     await storesReady;
     preferencesStore.setState((state) => ({ ...state, accent: "electric" }));

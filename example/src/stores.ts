@@ -1,13 +1,12 @@
 import {
   configureNusm,
+  createBroadcastChannelSyncSource,
   createIndexDbAdapter,
   createLocalStorageAdapter,
   createNusmStore,
   createSessionStorageAdapter,
   type NusmSyncContext,
 } from "nusm";
-
-configureNusm({ crossTab: true });
 
 type Task = { id: string; title: string; done: boolean; owner: string };
 const isRecord = (candidate: unknown): candidate is Record<string, unknown> =>
@@ -22,14 +21,6 @@ const validatePreferencesCandidate = (
   isRecord(candidate) &&
   typeof candidate.accent === "string" &&
   typeof candidate.density === "string";
-const validateSessionCandidate = (
-  candidate: unknown,
-  context: NusmSyncContext,
-) =>
-  context.source.length > 0 &&
-  isRecord(candidate) &&
-  typeof candidate.activeView === "string" &&
-  typeof candidate.drafts === "number";
 const validateActivityCandidate = (
   candidate: unknown,
   context: NusmSyncContext,
@@ -37,6 +28,68 @@ const validateActivityCandidate = (
   context.source.length > 0 &&
   isRecord(candidate) &&
   Array.isArray(candidate.events);
+const validateWorkspaceCandidate = (candidate: unknown) =>
+  isRecord(candidate) &&
+  typeof candidate.activeProject === "string" &&
+  typeof candidate.commandRuns === "number" &&
+  typeof candidate.focusMinutes === "number" &&
+  Array.isArray(candidate.tasks);
+const validateSessionCandidate = (candidate: unknown) =>
+  isRecord(candidate) &&
+  typeof candidate.activeView === "string" &&
+  typeof candidate.drafts === "number" &&
+  typeof candidate.lastCommand === "string";
+const validateGlobalCandidate = (
+  candidate: unknown,
+  context: NusmSyncContext,
+) =>
+  ({
+    "activity-archive": (value: unknown) =>
+      isRecord(value) && Array.isArray(value.events),
+    "live-session": validateSessionCandidate,
+    preferences: (value: unknown) =>
+      isRecord(value) &&
+      typeof value.accent === "string" &&
+      typeof value.density === "string" &&
+      typeof value.shortcuts === "boolean" &&
+      typeof value.theme === "string",
+    "workspace-pulse": validateWorkspaceCandidate,
+  })[context.storeId]?.(candidate) ?? false;
+
+const shouldEnableSynchronization =
+  typeof window !== "undefined" &&
+  (Boolean(
+    (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV,
+  ) ||
+    new URLSearchParams(window.location.search).has("sync"));
+
+configureNusm({ sync: { validator: validateGlobalCandidate } });
+
+if (shouldEnableSynchronization) {
+  const response = await fetch("/sync-key");
+  if (!response.ok)
+    throw new Error("Example synchronization key is unavailable.");
+  const encoded = await response.text();
+  const keyBytes = Uint8Array.from(atob(encoded), (character) =>
+    character.charCodeAt(0),
+  );
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { hash: "SHA-256", name: "HMAC" },
+    false,
+    ["sign", "verify"],
+  );
+  configureNusm({
+    sync: {
+      source: createBroadcastChannelSyncSource({
+        key,
+        namespace: "nusm-example",
+      }),
+      validator: validateGlobalCandidate,
+    },
+  });
+}
 
 export const workspaceStore = createNusmStore(
   {
@@ -54,7 +107,11 @@ export const workspaceStore = createNusmStore(
       { done: false, id: "t3", owner: "Rin", title: "Polish launch telemetry" },
     ] as Task[],
   },
-  { devtools: { eventLogCap: 150, name: "Workspace Pulse" } },
+  {
+    devtools: { eventLogCap: 150, name: "Workspace Pulse" },
+    storeId: "workspace-pulse",
+    sync: { validator: validateGlobalCandidate },
+  },
 );
 
 export const preferencesStore = createNusmStore(
@@ -77,11 +134,10 @@ export const sessionStore = createNusmStore(
   { activeView: "command-center", drafts: 2, lastCommand: "⌘ K" },
   {
     adapter: createSessionStorageAdapter(),
-    crossTab: false,
     devtools: { name: "Live Session" },
     persist: { strategy: "entire" },
     storeId: "live-session",
-    sync: { validator: validateSessionCandidate },
+    sync: false,
   },
 );
 
@@ -121,5 +177,3 @@ export const storesReady = Promise.all([
   sessionStore.ready,
   activityStore.ready,
 ]);
-
-configureNusm({ crossTab: false });

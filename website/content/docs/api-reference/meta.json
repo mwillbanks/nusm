@@ -1,4 +1,4 @@
 {
   "title": "API Reference",
-  "pages": ["create-nusm-store", "adapter-contract", "react"]
+  "pages": ["create-nusm-store", "adapter-contract", "synchronization", "react"]
 }

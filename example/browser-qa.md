@@ -37,18 +37,11 @@ After `bun run example:build` and `PORT=43117 bun run example:serve`, `/` return
 6. Reload and confirm localStorage, sessionStorage, and IndexedDB tabs remain hydrated and synchronized.
 7. Check desktop and mobile browser consoles for warnings or errors.
 
-## Cross-tab extension
+## Authenticated synchronization extension
 
-For feature acceptance, open two same-origin tabs. Verify Workspace Pulse,
-Preferences, and Activity Archive update in the second tab. Verify Live Session
-does not update because it explicitly overrides the global default. Confirm the
-Devtools summary shows `active` or `disabled` accordingly, and confirm both
-browser consoles remain free of warnings and errors.
-
-### 2026-08-13 production proof
-
-Two fresh same-origin tabs used the production bundle at
-`http://127.0.0.1:43117/`. Preferences and IndexedDB Activity synchronized in
-the receiving tab. Live Session remained local because its store disables
-cross-tab communication. The receiving tab also obtained the in-memory
-Workspace Pulse snapshot after startup. Both browser error logs remained empty.
+For feature acceptance, provision the development runtime key and open two
+same-origin tabs with `?sync`. Verify Workspace Pulse, Preferences, and Activity
+Archive update in the second tab. Verify Live Session does not update because it
+explicitly opts out. Confirm the Devtools summary shows `active` or `disabled`,
+and confirm both browser consoles remain free of warnings and errors. Never
+enable this endpoint in production without an intentional authorized key.

@@ -13,6 +13,13 @@ const checkout = createNusmStore(
     adapter: createSessionStorageAdapter(),
     persist: { strategy: "entire" },
     storeId: "checkout",
+    sync: {
+      validator: (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        Array.isArray((candidate as { completedSteps?: unknown }).completedSteps) &&
+        typeof (candidate as { currentStep?: unknown }).currentStep === "string",
+    },
   },
 )
 ```
@@ -21,9 +28,10 @@ Session storage survives reloads in the current tab, but is cleared when that pa
 
 “Should not outlive the tab” does not mean “should not be in a store.” Use an in-memory nusm store when reload should reset the state. Use this adapter when a refresh should preserve the current tab's progress, evidence, draft, or demo session.
 
-With `crossTab: true`, BroadcastChannel intentionally copies remote state into
-each receiving tab's separate session storage. Without that opt-in, sessions
-remain independent.
+Authenticated synchronization can intentionally copy validated remote state
+into each receiving tab's separate session storage. Configure it through `sync`
+and an HMAC source; see [Authenticated synchronization](/docs/concepts/synchronization).
+Without that explicit source configuration, sessions remain independent.
 
 ## Options
 

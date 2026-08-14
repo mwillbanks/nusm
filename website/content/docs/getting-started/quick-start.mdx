@@ -38,6 +38,12 @@ export const counterStore = createNusmStore(
     adapter: createLocalStorageAdapter(),
     persist: { strategy: "entire" },
     storeId: "counter",
+    sync: {
+      validator: (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        typeof (candidate as { count?: unknown }).count === "number",
+    },
   },
 )
 ```
@@ -125,6 +131,12 @@ const store = createNusmStore(
     },
     persist: { strategy: "entire" },
     storeId: "counter",
+    sync: {
+      validator: (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        typeof (candidate as { count?: unknown }).count === "number",
+    },
   },
 )
 

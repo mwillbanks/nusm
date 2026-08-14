@@ -22,7 +22,7 @@ nusm is not a competing reactive engine. It builds directly on [`@tanstack/store
 | Debounced writes | Bring your own | Adapter `pacer` policy |
 | Browser storage adapters | No | localStorage, sessionStorage, IndexedDB |
 | Custom storage contract | Application-specific | Typed `NusmAdapter` |
-| Cross-tab adapter events | Bring your own | Supported through `subscribe` |
+| Authenticated browser synchronization | Bring your own | HMAC source with validators |
 | React selector hook | Separate integration | `nusm/react` |
 | Store-specific inspector | General TanStack tooling | Optional `nusm/devtools` plugin |
 
@@ -83,7 +83,7 @@ The adapter and persistence options define how state crosses the boundary betwee
 - You need selected fields persisted without splitting one logical store.
 - Stored data needs validation, transformation, or custom merging.
 - Rapid updates should be paced before storage writes.
-- Cross-tab or external storage changes should flow back into live state.
+- Authenticated browser or external storage changes should flow back into live state.
 - Developers need to compare memory and adapter state in Devtools.
 
 ## Migration from TanStack Store
@@ -103,6 +103,12 @@ const settings = createNusmStore(
     adapter: createLocalStorageAdapter(),
     persist: { strategy: "entire" },
     storeId: "settings",
+    sync: {
+      validator: (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        typeof (candidate as { theme?: unknown }).theme === "string",
+    },
   },
 )
 

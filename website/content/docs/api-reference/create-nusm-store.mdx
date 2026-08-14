@@ -21,14 +21,16 @@ All options are optional. With no adapter, the store remains in memory, `ready` 
 
 ### `adapter`
 
-Enables persistence for this store through a built-in or custom `NusmAdapter`. A stable `storeId` or non-empty Devtools name is required when an adapter is present. Omit it for in-memory state.
+Enables persistence for this store through a built-in or custom `NusmAdapter`. A
+stable `storeId` is required when an adapter is present. Omit the adapter for
+in-memory state.
 
-### `crossTab`
+### `sync`
 
-Enables or disables the browser BroadcastChannel transport for this store. It
-overrides the default captured from `configureNusm({ crossTab })` when the store
-is created. The package default is `false`. Adapter subscriptions remain active
-independently for adapter-defined external events.
+Configures authenticated synchronization for this store. Set `false` to opt
+out of a global source, or provide `{ source, validator, optimistic }` to use a
+store-specific source. Every source requires a validator; store validators
+override the global validator. See [Authenticated synchronization](/docs/concepts/synchronization).
 
 ### `persist`
 
@@ -44,7 +46,9 @@ Receives adapter, hydration, persistence, external-event, and snapshot failures.
 
 ### `storeId`
 
-The stable logical identifier used to derive persistence keys and label Devtools state.
+The stable logical identifier used to derive persistence keys, synchronization
+capabilities, and label Devtools state. Persistence and synchronization require
+an explicit `storeId`; Devtools names never provide identity.
 
 ## Hydration configuration
 
@@ -64,17 +68,27 @@ A slice must own only the selected value represented by its key.
 
 Use the inherited `state`, `setState`, and `subscribe` members for ordinary store work.
 Call `await store.dispose()` to flush queued persistence and release internal
-subscriptions. Disposal is optional and idempotent.
+subscriptions. Disposal is asynchronous, idempotent, and returns one shared
+promise. It marks the store disposed synchronously, so late hydration cannot
+mutate memory, persistence, or queued events. Every cleanup and flush is
+attempted. If any fail, the promise rejects once with an `AggregateError` and
+reports each failure through `onError`. A pending `ready` rejects with
+`AbortError`, and hydration states become `cancelled`.
 
 ## Global configuration
 
 ```ts
-configureNusm({ crossTab: true })
+configureNusm({
+  sync: {
+    source,
+    validator: validateCandidate,
+  },
+})
 ```
 
-This changes the default only for subsequently created stores. Browser stores
-need a stable `storeId` or normalized Devtools name. Global opt-in skips unnamed
-stores, while explicit store opt-in rejects them.
+This captures the source only for subsequently created stores. A global source
+auto-enables stores with an explicit `storeId`; `sync: false` opts out one store.
+Unnamed stores remain in memory and are not synchronized.
 
 ## Lifecycle and Devtools types
 
@@ -85,6 +99,7 @@ type HydrationState =
   | "hydrated"
   | "discarded"
   | "error"
+  | "cancelled"
 ```
 
 <auto-type-table path="../../../../src/types.ts" name="ReadonlyHydrationStatus" />
@@ -109,6 +124,13 @@ const store = createNusmStore(
       },
     },
     storeId: "ui-preferences",
+    sync: {
+      validator: (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        typeof (candidate as { locale?: unknown }).locale === "string" &&
+        typeof (candidate as { sidebarOpen?: unknown }).sidebarOpen === "boolean",
+    },
   },
 )
 

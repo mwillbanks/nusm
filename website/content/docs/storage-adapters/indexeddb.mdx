@@ -59,9 +59,9 @@ nusm:<storeId>:slice:<sliceKey>
 
 IndexedDB is a good fit when state is too substantial for synchronous Web Storage, writes are naturally asynchronous, or you want a dedicated object store boundary.
 
-Set `crossTab: true` on the store, or enable the global default before creating
-it, to synchronize IndexedDB-backed state through nusm's BroadcastChannel
-transport. Remote values are written into the receiving tab's IndexedDB store.
+Configure [Authenticated synchronization](/docs/concepts/synchronization) with
+an HMAC source to share IndexedDB-backed state. Remote values pass the receiving
+store validator before being written into its IndexedDB store.
 
 ## Browser boundary
 

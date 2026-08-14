@@ -1,13 +1,13 @@
 import "fake-indexeddb/auto";
 import { describe, expect, test } from "bun:test";
 import {
+  createBroadcastChannelSyncSource,
   createIndexDbAdapter,
   createLocalStorageAdapter,
   createNusmStore,
   createSessionStorageAdapter,
   type NusmAdapter,
   type NusmSyncContext,
-  type NusmSyncSource,
 } from "nusm";
 
 const validateExampleCandidate = (
@@ -20,32 +20,25 @@ const validateExampleCandidate = (
   !Array.isArray(candidate) &&
   typeof (candidate as { value?: unknown }).value === "number";
 
-const createExampleSyncSource = (): NusmSyncSource => {
-  const listeners = new Set<Parameters<NusmSyncSource["start"]>[0]>();
-  return {
-    publish: (event) => {
-      const value = structuredClone(event);
-      for (const listener of listeners) queueMicrotask(() => listener(value));
-    },
-    start: (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-  };
-};
+const createExampleSyncSource = (key = 17) =>
+  createBroadcastChannelSyncSource({
+    key: new Uint8Array(Array.from({ length: 32 }, (_, index) => index + key)),
+    namespace: "nusm-example-tests",
+  });
 
 const verifyAdapter = async (
   name: string,
   createAdapter?: () => NusmAdapter,
 ) => {
   const storeId = `example-${name}`;
-  const sync = createExampleSyncSource();
+  const firstSync = createExampleSyncSource();
+  const secondSync = createExampleSyncSource();
   const first = createNusmStore(
     { value: 0 },
     {
       adapter: createAdapter?.(),
       storeId,
-      sync: { source: sync, validator: validateExampleCandidate },
+      sync: { source: firstSync, validator: validateExampleCandidate },
     },
   );
   const second = createNusmStore(
@@ -53,7 +46,7 @@ const verifyAdapter = async (
     {
       adapter: createAdapter?.(),
       storeId,
-      sync: { source: sync, validator: validateExampleCandidate },
+      sync: { source: secondSync, validator: validateExampleCandidate },
     },
   );
   await Promise.all([first.ready, second.ready]);
@@ -64,7 +57,7 @@ const verifyAdapter = async (
   await Promise.all([first.dispose(), second.dispose()]);
 };
 
-describe("example cross-tab behavior", () => {
+describe("example authenticated synchronization", () => {
   test("synchronizes memory and every built-in browser adapter", async () => {
     localStorage.clear();
     sessionStorage.clear();
@@ -72,7 +65,28 @@ describe("example cross-tab behavior", () => {
     await verifyAdapter("local", () => createLocalStorageAdapter());
     await verifyAdapter("session", () => createSessionStorageAdapter());
     await verifyAdapter("indexed", () =>
-      createIndexDbAdapter({ dbName: "nusm-cross-tab-example" }),
+      createIndexDbAdapter({ dbName: "nusm-synchronization-example" }),
     );
+  });
+
+  test("rejects a peer provisioned with the wrong runtime key", async () => {
+    const trusted = createExampleSyncSource(17);
+    const outsider = createExampleSyncSource(99);
+    const received: unknown[] = [];
+    await trusted.start((event) => received.push(event.state), {
+      storeId: "authenticated-proof",
+    });
+    await outsider.start(() => undefined, { storeId: "authenticated-proof" });
+    await outsider.publish({
+      eventId: "wrong-key",
+      kind: "update",
+      sourceId: "outsider",
+      state: { value: 99 },
+      storeId: "authenticated-proof",
+    });
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(received).toHaveLength(0);
+    await trusted.dispose?.({ storeId: "authenticated-proof" });
+    await outsider.dispose?.({ storeId: "authenticated-proof" });
   });
 });

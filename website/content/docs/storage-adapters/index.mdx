@@ -50,4 +50,4 @@ The default prefix is `nusm`. IndexedDB uses the same key shape inside its objec
 
 ## Pick deliberately
 
-Choose based on ownership and lifetime, not only capacity. `sessionStorage` is isolated per tab. `localStorage` is synchronous and shared by same-origin tabs. IndexedDB is asynchronous and better suited to more substantial browser data. A custom adapter is the right boundary when storage semantics belong to your platform.
+Choose based on ownership and lifetime, not only capacity. `sessionStorage` is isolated per tab. `localStorage` is synchronous and shared by same-origin tabs. IndexedDB is asynchronous and better suited to more substantial browser data. A custom adapter is the right boundary when storage semantics belong to your platform. Add [authenticated synchronization](/docs/concepts/synchronization) only when peers need validated, bounded state sharing.

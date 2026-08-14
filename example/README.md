@@ -13,10 +13,13 @@ This standalone Bun and React application demonstrates how to build, inspect, an
 
 Every persistent store writes a missing initial value before `store.ready` resolves. The adapter tabs therefore start with real values and report synchronized health with no pending keys. Reload tests prove that later localStorage, sessionStorage, and IndexedDB values hydrate into a new store lifecycle.
 
-The example enables cross-tab communication globally before creating its
-stores. `Live Session` demonstrates a store-level `crossTab: false` override.
-Open two same-origin tabs to observe memory, localStorage, and IndexedDB stores
-synchronize. Devtools reports the transport state for every store.
+The example provisions one process-scoped HMAC key from `/sync-key` during
+development, imports it into a non-extractable browser `CryptoKey`, and enables
+authenticated synchronization for identified stores. `Live Session` opts out
+with `sync: false`. Open two same-origin tabs with `?sync` to observe validated
+memory, localStorage, and IndexedDB updates. Production serving keeps the
+endpoint disabled unless `NUSM_ENABLE_SYNC=1` is set intentionally; the browser
+also requires the explicit `?sync` query parameter in production.
 
 ## Prerequisites
 
@@ -74,6 +77,13 @@ export const preferences = createNusmStore(
     devtools: { name: "Preferences", eventLogCap: 150 },
     persist: { strategy: "entire" },
     storeId: "preferences",
+    sync: {
+      validator: (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        typeof (candidate as { accent?: unknown }).accent === "string" &&
+        typeof (candidate as { theme?: unknown }).theme === "string",
+    },
   },
 )
 
@@ -114,7 +124,8 @@ bun run example:build
 ```
 
 The tests exercise React navigation, readiness guards, real browser-adapter
-persistence, reload hydration, all four cross-tab store categories, optional
+persistence, reload hydration, authenticated synchronization across all four
+store categories, wrong-key rejection, optional
 plugin behavior, static asset traversal rejection, and live panel interactions.
 
 Serve the production bundle:
@@ -124,6 +135,22 @@ PORT=4173 bun run example:serve
 ```
 
 Production mode selects the no-op plugin by default. To inspect this local production build explicitly, open `http://127.0.0.1:4173/?devtools`. Do not expose that opt-in on an untrusted deployment because store snapshots may contain sensitive application data.
+
+To intentionally enable authenticated synchronization in production, provide a
+base64 key encoding at least 32 random bytes, enable the endpoint, and opt in
+the browser query:
+
+```bash
+NUSM_ENABLE_SYNC=1 \
+NUSM_SYNC_KEY='AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=' \
+PORT=4173 bun run example:build
+NUSM_ENABLE_SYNC=1 \
+NUSM_SYNC_KEY='AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=' \
+PORT=4173 bun run example:serve
+```
+
+Open `http://127.0.0.1:4173/?sync` only across an authorized HTTPS boundary in
+real deployments. Never commit or reuse the example key.
 
 ## Further reading
 

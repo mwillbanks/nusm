@@ -61,6 +61,13 @@ export const session = createNusmStore(
     adapter: createSessionStorageAdapter(),
     persist: { strategy: "entire" },
     storeId: "session",
+    sync: {
+      validator: (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        Array.isArray((candidate as { evidence?: unknown }).evidence) &&
+        typeof (candidate as { startedAt?: unknown }).startedAt === "number",
+    },
   },
 )
 
@@ -71,6 +78,12 @@ export const preferences = createNusmStore(
     adapter: createLocalStorageAdapter(),
     persist: { strategy: "entire" },
     storeId: "preferences",
+    sync: {
+      validator: (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        typeof (candidate as { theme?: unknown }).theme === "string",
+    },
   },
 )
 ```
@@ -97,6 +110,14 @@ export const preferences = createNusmStore<Preferences>(
     devtools: { name: "Preferences" },
     persist: { strategy: "entire" },
     storeId: "preferences",
+    sync: {
+      validator: (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        ((candidate as { accent?: unknown }).accent === "cyan" ||
+          (candidate as { accent?: unknown }).accent === "violet") &&
+        typeof (candidate as { compact?: unknown }).compact === "boolean",
+    },
   },
 )
 

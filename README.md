@@ -49,6 +49,13 @@ const sessionStore = createNusmStore(
     storeId: 'session',
     adapter: createSessionStorageAdapter(),
     persist: { strategy: 'entire' },
+    sync: {
+      validator: (candidate) =>
+        typeof candidate === 'object' &&
+        candidate !== null &&
+        Array.isArray((candidate as { evidence?: unknown }).evidence) &&
+        typeof (candidate as { startedAt?: unknown }).startedAt === 'number',
+    },
   },
 )
 
@@ -96,14 +103,21 @@ non-extractable HMAC-SHA-256 `CryptoKey` with `sign` and `verify` usage:
 ```ts
 import { configureNusm, createBroadcastChannelSyncSource, createNusmStore } from 'nusm'
 
-// Provision the same 32-byte key to every authorized tab at runtime.
-const keyMaterial = Uint8Array.from(
+// Provision the same random key to every authorized tab at runtime.
+const keyBytes = Uint8Array.from(
   atob(await fetch('/sync-key').then((response) => response.text())),
   (character) => character.charCodeAt(0),
 )
+const key = await crypto.subtle.importKey(
+  'raw',
+  keyBytes,
+  { name: 'HMAC', hash: 'SHA-256' },
+  false,
+  ['sign', 'verify'],
+)
 const source = createBroadcastChannelSyncSource({
   namespace: 'my-app',
-  key: keyMaterial,
+  key,
 })
 configureNusm({
   sync: {
@@ -116,6 +130,7 @@ configureNusm({
     },
   },
 })
+// A configured global source auto-enables stores with an explicit storeId.
 const shared = createNusmStore({ count: 0 }, { storeId: 'shared-counter' })
 const local = createNusmStore(
   { draft: '' },
@@ -127,6 +142,8 @@ Sources use an opaque HMAC-derived channel and authenticate every fixed-order
 header and SuperJSON payload. They bound state to 256 KiB, envelopes to 512 KiB,
 identifiers to 128 UTF-8 bytes, peers to 32, and message identities to 128 per
 peer. Invalid traffic receives bounded error reports and temporary quarantine.
+Use `sync: { source, validator }` to override the global source for one store;
+the store validator always runs before remote state reaches memory or storage.
 
 Synchronization remains defense-in-depth against a compromised same-origin
 application. Never synchronize credentials, tokens, secrets, or sensitive
@@ -208,6 +225,7 @@ Notes:
 - `resolveKey` lets you control key layout. When omitted, nusm uses
 	`nusm:<storeId>:entire` and `nusm:<storeId>:slice:<sliceKey>`.
 - `subscribe` should emit adapter-defined external events. nusm always attaches it when provided. Authenticated synchronization independently shares state between browser contexts.
+- Built-in `localStorage` and `sessionStorage` adapters provide `subscribe`; persisted stores using them must configure a shape-specific `sync.validator` even when no browser synchronization source is enabled. The validator protects against adapter-originated external values.
 - `pacer` controls debouncing of writes. Use `false` to write immediately.
 
 ### Creating a custom adapter

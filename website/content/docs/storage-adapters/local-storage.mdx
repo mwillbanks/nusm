@@ -1,6 +1,6 @@
 ---
 title: localStorage
-description: Persist small durable state across reloads with same-origin browser synchronization.
+description: Persist small durable state across reloads with same-origin browser storage.
 icon: HardDrive
 ---
 
@@ -13,6 +13,13 @@ const preferences = createNusmStore(
     adapter: createLocalStorageAdapter(),
     persist: { strategy: "entire" },
     storeId: "preferences",
+    sync: {
+      validator: (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        typeof (candidate as { density?: unknown }).density === "string" &&
+        typeof (candidate as { theme?: unknown }).theme === "string",
+    },
   },
 )
 ```
@@ -57,16 +64,13 @@ The current scheduler uses `wait`, `leading`, and `trailing`; `maxWait` remains 
 
 Always change serializer and deserializer together. Existing values written in another format need an explicit migration or a compatible decoder.
 
-## Cross-tab updates
+## External updates and synchronization
 
-The adapter can translate browser `storage` events into `set` or `remove`
-events. nusm continues attaching that adapter listener whenever it is provided.
-With `crossTab` enabled, BroadcastChannel additionally synchronizes current
-snapshots and updates for a consistent transport across all adapter types.
-
-BroadcastChannel communication remains disabled by default. Browser `storage`
-events retain their previous behavior. BroadcastChannel remote updates persist
-in the receiving tab without echoing back to peers.
+The adapter can translate browser `storage` events into `set` or `remove` events.
+nusm continues attaching that adapter listener whenever it is provided.
+Authenticated browser synchronization is configured independently through
+`sync`; see [Authenticated synchronization](/docs/concepts/synchronization).
+Remote values pass the receiving store validator and persist without echoing.
 
 ## Constraints
 
