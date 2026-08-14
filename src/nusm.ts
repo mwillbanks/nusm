@@ -1,6 +1,6 @@
 import createDeepmerge from "@fastify/deepmerge";
 import { AsyncDebouncer } from "@tanstack/pacer";
-import { batch, Store } from "@tanstack/store";
+import { Store } from "@tanstack/store";
 import { deepEqual } from "fast-equals";
 
 import { getNusmGlobalOptions } from "./config.js";
@@ -126,9 +126,6 @@ const resolveCommandStatus = (
 };
 
 const settleAdapterRead = () => undefined;
-
-// fallow-ignore-next-line unused-export
-export { batch, Store };
 
 // fallow-ignore-next-line complexity
 export function createNusmStore<TState>(
