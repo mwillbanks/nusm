@@ -9,15 +9,13 @@ icon: Cable
 ```ts
 function createLocalStorageAdapter(
   options?: StorageAdapterOptions,
-): NusmAdapter
+): NusmAdapter;
 
 function createSessionStorageAdapter(
   options?: StorageAdapterOptions,
-): NusmAdapter
+): NusmAdapter;
 
-function createIndexDbAdapter(
-  options?: IndexDbAdapterOptions,
-): NusmAdapter
+function createIndexDbAdapter(options?: IndexDbAdapterOptions): NusmAdapter;
 ```
 
 ## NusmAdapter
@@ -27,7 +25,7 @@ function createIndexDbAdapter(
 ## AdapterEvent
 
 ```ts
-type AdapterEventType = "set" | "remove" | "clear"
+type AdapterEventType = "set" | "remove" | "clear";
 ```
 
 <auto-type-table path="../../../../src/types.ts" name="AdapterEvent" />
@@ -48,11 +46,11 @@ external values as well as authenticated peer updates.
 type NusmPacerConfig =
   | false
   | {
-      wait?: number
-      maxWait?: number
-      leading?: boolean
-      trailing?: boolean
-    }
+      wait?: number;
+      maxWait?: number;
+      leading?: boolean;
+      trailing?: boolean;
+    };
 ```
 
 `false` bypasses the debouncer. The current runtime forwards `wait`, `leading`, and `trailing` to the `AsyncDebouncer`; `maxWait` remains in the public type but is not forwarded yet.

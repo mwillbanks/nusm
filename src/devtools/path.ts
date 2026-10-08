@@ -72,7 +72,8 @@ const createObjectContainer = (): Record<string, unknown> =>
 const cloneContainer = (value: unknown, nextSegment?: string | number) => {
   if (Array.isArray(value)) {
     const length = Object.getOwnPropertyDescriptor(value, "length")?.value;
-    const target = new Array(typeof length === "number" ? length : 0);
+    const target: unknown[] = [];
+    target.length = typeof length === "number" ? length : 0;
     copyOwnDataProperties(value, target);
     return target;
   }

@@ -9,13 +9,13 @@ function useStore<TState, TSelected = NoInfer<TState>>(
   store: NusmStore<TState>,
   selector?: (state: NoInfer<TState>) => TSelected,
   options?: UseStoreOptions,
-): TSelected
+): TSelected;
 ```
 
 Import it from the React-specific entry point:
 
 ```ts
-import { useStore } from "nusm/react"
+import { useStore } from "nusm/react";
 ```
 
 ## Options
@@ -24,20 +24,20 @@ import { useStore } from "nusm/react"
 
 ## Parameters
 
-| Parameter | Required | Description |
-| --- | ---: | --- |
-| `store` | Yes | A store returned by `createNusmStore` |
-| `selector` | No | Maps full state to the value the component needs; defaults to identity |
-| `options.equal` | No | `false` uses shallow equality; `true` uses deep equality |
+| Parameter       | Required | Description                                                            |
+| --------------- | -------: | ---------------------------------------------------------------------- |
+| `store`         |      Yes | A store returned by `createNusmStore`                                  |
+| `selector`      |       No | Maps full state to the value the component needs; defaults to identity |
+| `options.equal` |       No | `false` uses shallow equality; `true` uses deep equality               |
 
 ## Examples
 
 ```tsx
-const count = useStore(counterStore, (state) => state.count)
-const fullState = useStore(counterStore)
+const count = useStore(counterStore, (state) => state.count);
+const fullState = useStore(counterStore);
 const profile = useStore(userStore, (state) => state.profile, {
   equal: true,
-})
+});
 ```
 
 The hook uses React's `useSyncExternalStore` and preserves the previous selected reference when the configured equality function considers the next selection equal.

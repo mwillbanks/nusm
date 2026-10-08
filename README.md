@@ -2,7 +2,8 @@
   <img src="https://raw.githubusercontent.com/mwillbanks/nusm/refs/heads/main/logo.svg" alt="nusm" height="100" />
 </p>
 
-# nusm 
+# nusm
+
 Non Uniform State Manager (nusm) > Pronounced **noose em** (`/ˈnuːs əm/`)
 is a persistence-ready wrapper around
 [@tanstack/store](https://github.com/TanStack/store) with adapter-based storage.
@@ -23,6 +24,9 @@ Explore the full documentation at [mwillbanks.github.io/nusm](https://mwillbanks
 
 ## Install
 
+Use Node.js 20 or newer, or Bun. Pacer's current release requires an ESM runtime.
+See the [dependency upgrade guide](docs/DEPENDENCIES.md) for upgrade review and validation procedures.
+
 ```bash
 bun add nusm
 ```
@@ -32,34 +36,34 @@ bun add nusm
 `adapter` and `persist` are optional. This creates an in-memory nusm store:
 
 ```ts
-import { createNusmStore } from 'nusm'
+import { createNusmStore } from "nusm";
 
-const workspaceStore = createNusmStore({ selectedId: null, panelOpen: false })
+const workspaceStore = createNusmStore({ selectedId: null, panelOpen: false });
 ```
 
 Use the same store API when state needs a different lifetime. Persistence is a
 per-store choice, not an application-wide mode:
 
 ```ts
-import { createNusmStore, createSessionStorageAdapter } from 'nusm'
+import { createNusmStore, createSessionStorageAdapter } from "nusm";
 
 const sessionStore = createNusmStore(
   { evidence: [], startedAt: Date.now() },
   {
-    storeId: 'session',
+    storeId: "session",
     adapter: createSessionStorageAdapter(),
-    persist: { strategy: 'entire' },
+    persist: { strategy: "entire" },
     sync: {
       validator: (candidate) =>
-        typeof candidate === 'object' &&
+        typeof candidate === "object" &&
         candidate !== null &&
         Array.isArray((candidate as { evidence?: unknown }).evidence) &&
-        typeof (candidate as { startedAt?: unknown }).startedAt === 'number',
+        typeof (candidate as { startedAt?: unknown }).startedAt === "number",
     },
   },
-)
+);
 
-await sessionStore.ready
+await sessionStore.ready;
 ```
 
 The in-memory store resets on reload. The session store survives reloads in its
@@ -79,15 +83,15 @@ Omit `adapter` and `persist` for ordinary in-memory state. In that mode,
 when `persist` is omitted, nusm defaults to entire-store persistence.
 
 ```ts
-import { createNusmStore } from 'nusm'
+import { createNusmStore } from "nusm";
 
 const nusm = createNusmStore(initialState, {
-	storeId: 'settings',
-	adapter,
-	persist: {
-		strategy: 'entire',
-	},
-})
+  storeId: "settings",
+  adapter,
+  persist: {
+    strategy: "entire",
+  },
+});
 ```
 
 Return value:
@@ -101,41 +105,49 @@ namespace before creating stores. The key must be at least 32 random bytes or a
 non-extractable HMAC-SHA-256 `CryptoKey` with `sign` and `verify` usage:
 
 ```ts
-import { configureNusm, createBroadcastChannelSyncSource, createNusmStore } from 'nusm'
+import {
+  configureNusm,
+  createBroadcastChannelSyncSource,
+  createNusmStore,
+} from "nusm";
 
 // Provision the same random key to every authorized tab at runtime.
 const keyBytes = Uint8Array.from(
-  atob(await fetch('/sync-key').then((response) => response.text())),
+  atob(await fetch("/sync-key").then((response) => response.text())),
   (character) => character.charCodeAt(0),
-)
+);
 const key = await crypto.subtle.importKey(
-  'raw',
+  "raw",
   keyBytes,
-  { name: 'HMAC', hash: 'SHA-256' },
+  { name: "HMAC", hash: "SHA-256" },
   false,
-  ['sign', 'verify'],
-)
+  ["sign", "verify"],
+);
 const source = createBroadcastChannelSyncSource({
-  namespace: 'my-app',
+  namespace: "my-app",
   key,
-})
+});
 configureNusm({
   sync: {
     source,
     validator: (candidate) => {
       // Validate the shared-counter shape before it reaches store memory.
-      if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate))
-        return false
-      return typeof (candidate as { count?: unknown }).count === 'number'
+      if (
+        typeof candidate !== "object" ||
+        candidate === null ||
+        Array.isArray(candidate)
+      )
+        return false;
+      return typeof (candidate as { count?: unknown }).count === "number";
     },
   },
-})
+});
 // A configured global source auto-enables stores with an explicit storeId.
-const shared = createNusmStore({ count: 0 }, { storeId: 'shared-counter' })
+const shared = createNusmStore({ count: 0 }, { storeId: "shared-counter" });
 const local = createNusmStore(
-  { draft: '' },
-  { sync: false, storeId: 'local-draft' },
-)
+  { draft: "" },
+  { sync: false, storeId: "local-draft" },
+);
 ```
 
 Sources use an opaque HMAC-derived channel and authenticate every fixed-order
@@ -164,7 +176,9 @@ integration.
 **Entire store**
 
 ```ts
-persist: { strategy: 'entire' }
+persist: {
+  strategy: "entire";
+}
 ```
 
 **Slices**
@@ -206,16 +220,32 @@ external changes (for example, another tab) are observed.
 
 ```ts
 type NusmAdapter = {
-	name: string
-	getItem(key: string): unknown | null | Promise<unknown | null>
-	setItem(key: string, value: unknown): void | Promise<void>
-	removeItem(key: string): void | Promise<void>
-	getAllKeys?(): string[] | Promise<string[]>
-	clear?(): void | Promise<void>
-	subscribe?(listener: (event: { type: 'set' | 'remove' | 'clear'; key?: string }) => void): () => void
-	resolveKey?(params: { storeId: string; sliceKey?: string; kind: 'entire' | 'slice' }): string
-	pacer?: false | { wait?: number; maxWait?: number; leading?: boolean; trailing?: boolean }
-}
+  name: string;
+  getItem(key: string): unknown | null | Promise<unknown | null>;
+  setItem(key: string, value: unknown): void | Promise<void>;
+  removeItem(key: string): void | Promise<void>;
+  getAllKeys?(): string[] | Promise<string[]>;
+  clear?(): void | Promise<void>;
+  subscribe?(
+    listener: (event: {
+      type: "set" | "remove" | "clear";
+      key?: string;
+    }) => void,
+  ): () => void;
+  resolveKey?(params: {
+    storeId: string;
+    sliceKey?: string;
+    kind: "entire" | "slice";
+  }): string;
+  pacer?:
+    | false
+    | {
+        wait?: number;
+        maxWait?: number;
+        leading?: boolean;
+        trailing?: boolean;
+      };
+};
 ```
 
 Notes:
@@ -223,7 +253,7 @@ Notes:
 - `getAllKeys` is optional adapter-wide enumeration for callers that need it;
   devtools snapshots read configured persistence units through `resolveKey`.
 - `resolveKey` lets you control key layout. When omitted, nusm uses
-	`nusm:<storeId>:entire` and `nusm:<storeId>:slice:<sliceKey>`.
+  `nusm:<storeId>:entire` and `nusm:<storeId>:slice:<sliceKey>`.
 - `subscribe` should emit adapter-defined external events. nusm always attaches it when provided. Authenticated synchronization independently shares state between browser contexts.
 - Built-in `localStorage` and `sessionStorage` adapters provide `subscribe`; persisted stores using them must configure a shape-specific `sync.validator` even when no browser synchronization source is enabled. The validator protects against adapter-originated external values.
 - `pacer` controls debouncing of writes. Use `false` to write immediately.
@@ -232,24 +262,24 @@ Notes:
 
 ```ts
 const memoryAdapter: NusmAdapter = {
-	name: 'memory',
-	getItem: (key) => store.get(key) ?? null,
-	setItem: (key, value) => store.set(key, value),
-	removeItem: (key) => store.delete(key),
-	getAllKeys: () => Array.from(store.keys()),
-	resolveKey: ({ storeId, kind, sliceKey }) =>
-		kind === 'entire'
-			? `nusm:${storeId}:entire`
-			: `nusm:${storeId}:slice:${sliceKey}`,
-}
+  name: "memory",
+  getItem: (key) => store.get(key) ?? null,
+  setItem: (key, value) => store.set(key, value),
+  removeItem: (key) => store.delete(key),
+  getAllKeys: () => Array.from(store.keys()),
+  resolveKey: ({ storeId, kind, sliceKey }) =>
+    kind === "entire"
+      ? `nusm:${storeId}:entire`
+      : `nusm:${storeId}:slice:${sliceKey}`,
+};
 ```
 
 ### Local Storage
 
 ```ts
-import { createLocalStorageAdapter } from 'nusm'
+import { createLocalStorageAdapter } from "nusm";
 
-const adapter = createLocalStorageAdapter()
+const adapter = createLocalStorageAdapter();
 ```
 
 Options:
@@ -263,9 +293,9 @@ Options:
 ### Session Storage
 
 ```ts
-import { createSessionStorageAdapter } from 'nusm'
+import { createSessionStorageAdapter } from "nusm";
 
-const adapter = createSessionStorageAdapter()
+const adapter = createSessionStorageAdapter();
 ```
 
 Options:
@@ -279,9 +309,9 @@ Options:
 ### IndexedDB
 
 ```ts
-import { createIndexDbAdapter } from 'nusm'
+import { createIndexDbAdapter } from "nusm";
 
-const adapter = createIndexDbAdapter({ dbName: 'my-db' })
+const adapter = createIndexDbAdapter({ dbName: "my-db" });
 ```
 
 Options:
@@ -296,10 +326,10 @@ Options:
 ## React Hooks
 
 ```ts
-import { useStore } from 'nusm/react'
+import { useStore } from "nusm/react";
 ```
 
-`useStore` uses React 19's `useSyncExternalStore` and supports selectors and
+`useStore` uses React's `useSyncExternalStore` and supports selectors and
 configurable equality checks.
 
 ### `useStore(store, selector?, options?)`
@@ -308,18 +338,18 @@ Arguments:
 
 - `store`: a Nusm store instance returned by `createNusmStore`.
 - `selector` (optional): function that receives the full state and returns the
-	selected slice. Defaults to identity (returns full state).
+  selected slice. Defaults to identity (returns full state).
 - `options` (optional): configuration object with:
-	- `equal`: when `true`, uses deep equality (`fast-equals` `deepEqual`). When
-		`false` or omitted, uses shallow equality (`fast-equals` `shallowEqual`).
+  - `equal`: when `true`, uses deep equality (`fast-equals` `deepEqual`). When
+    `false` or omitted, uses shallow equality (`fast-equals` `shallowEqual`).
 
 Example:
 
 ```ts
-const store = createNusmStore({ user: { name: 'Ada' } })
+const store = createNusmStore({ user: { name: "Ada" } });
 
-const name = useStore(store, (state) => state.user.name)
-const user = useStore(store, (state) => state.user, { equal: true })
+const name = useStore(store, (state) => state.user.name);
+const user = useStore(store, (state) => state.user, { equal: true });
 ```
 
 ## Tests
@@ -350,18 +380,22 @@ bun add -d @tanstack/devtools @tanstack/devtools-utils \
 ```
 
 ```tsx
-import { TanStackDevtools } from "@tanstack/react-devtools"
-import { createNusmDevtoolsPlugin } from "nusm/devtools"
+import { TanStackDevtools } from "@tanstack/react-devtools";
+import { createNusmDevtoolsPlugin } from "nusm/devtools";
 
-const nusmPlugin = createNusmDevtoolsPlugin()
+const nusmPlugin = createNusmDevtoolsPlugin();
 
 export function DevelopmentTools() {
   return (
     <TanStackDevtools
-      config={{ defaultOpen: false, position: "bottom-right", triggerMode: "floating" }}
+      config={{
+        defaultOpen: false,
+        position: "bottom-right",
+        triggerMode: "floating",
+      }}
       plugins={[nusmPlugin]}
     />
-  )
+  );
 }
 ```
 

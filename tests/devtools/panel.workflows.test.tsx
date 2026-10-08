@@ -104,6 +104,8 @@ describe("devtools panel workflows", () => {
     fireEvent.click(view.getByRole("button", { name: "Edit raw JSON" }));
     expect(view.getByRole("dialog", { name: "raw value" })).toBeInTheDocument();
     const dialog = view.getByRole("dialog", { name: "raw value" });
+    expect(dialog.tagName).toBe("DIALOG");
+    expect(dialog).toHaveAttribute("open");
     const focusables = dialog.querySelectorAll<HTMLElement>(
       'input, textarea, button:not([disabled]), [tabindex]:not([tabindex="-1"])',
     );

@@ -5,7 +5,7 @@ icon: PanelsTopLeft
 ---
 
 ```ts
-import { createNusmStore, createSessionStorageAdapter } from "nusm"
+import { createNusmStore, createSessionStorageAdapter } from "nusm";
 
 const checkout = createNusmStore(
   { completedSteps: [], currentStep: "contact" },
@@ -17,11 +17,14 @@ const checkout = createNusmStore(
       validator: (candidate) =>
         typeof candidate === "object" &&
         candidate !== null &&
-        Array.isArray((candidate as { completedSteps?: unknown }).completedSteps) &&
-        typeof (candidate as { currentStep?: unknown }).currentStep === "string",
+        Array.isArray(
+          (candidate as { completedSteps?: unknown }).completedSteps,
+        ) &&
+        typeof (candidate as { currentStep?: unknown }).currentStep ===
+          "string",
     },
   },
-)
+);
 ```
 
 Session storage survives reloads in the current tab, but is cleared when that page session ends. It is a good fit for workflows that should not reappear in a later browsing session.
@@ -37,19 +40,19 @@ Without that explicit source configuration, sessions remain independent.
 
 `createSessionStorageAdapter` accepts the same `StorageAdapterOptions` as the local storage adapter:
 
-| Option | Default | Purpose |
-| --- | --- | --- |
-| `storage` | `window.sessionStorage` | Inject another synchronous Storage-like target |
-| `prefix` | `"nusm"` | Namespace all physical keys |
-| `serialize` | `superjson.stringify` | Encode state before writing |
-| `deserialize` | `superjson.parse` | Decode matching stored values |
-| `pacer` | trailing, 50 ms | Control write scheduling |
+| Option        | Default                 | Purpose                                        |
+| ------------- | ----------------------- | ---------------------------------------------- |
+| `storage`     | `window.sessionStorage` | Inject another synchronous Storage-like target |
+| `prefix`      | `"nusm"`                | Namespace all physical keys                    |
+| `serialize`   | `superjson.stringify`   | Encode state before writing                    |
+| `deserialize` | `superjson.parse`       | Decode matching stored values                  |
+| `pacer`       | trailing, 50 ms         | Control write scheduling                       |
 
 ```ts
 const adapter = createSessionStorageAdapter({
   prefix: "checkout-v2",
   pacer: false,
-})
+});
 ```
 
 ## When to choose it

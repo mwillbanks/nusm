@@ -1,12 +1,25 @@
 # fallow.toml - Codebase analysis configuration
 # See https://docs.fallow.tools for documentation
 
-entry = ["src/index.{ts,tsx,js,jsx}", "src/main.{ts,tsx,js,jsx}", "example/server.ts", "example/serve.ts"]
+entry = [
+  "src/index.{ts,tsx,js,jsx}",
+  "src/main.{ts,tsx,js,jsx}",
+  "example/server.ts",
+  "example/serve.ts",
+]
 
 # Bun resolves this scanner through bunfig.toml rather than a source import.
 # The standalone example satisfies optional peers imported through its local nusm source dependency.
 # The website collections alias resolves generated Fumadocs MDX modules.
-ignoreDependencies = ["@bun-security-scanner/osv", "@happy-dom/global-registrator", "@tanstack/devtools", "@tanstack/devtools-utils", "collections", "conventional-changelog-conventionalcommits", "nusm"]
+ignoreDependencies = [
+  "@bun-security-scanner/osv",
+  "@happy-dom/global-registrator",
+  "@tanstack/devtools",
+  "@tanstack/devtools-utils",
+  "collections",
+  "conventional-changelog-conventionalcommits",
+  "nusm",
+]
 
 [duplicates]
 # Hide pair-only clones; focus on widespread copy-paste worth refactoring.

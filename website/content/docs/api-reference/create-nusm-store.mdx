@@ -8,7 +8,7 @@ icon: Braces
 function createNusmStore<TState>(
   initialState: TState,
   options?: CreateNusmStoreOptions<TState>,
-): NusmStore<TState>
+): NusmStore<TState>;
 ```
 
 Creates a TanStack Store extended with nusm hydration and Devtools identity.
@@ -17,7 +17,10 @@ All options are optional. With no adapter, the store remains in memory, `ready` 
 
 ## Options
 
-<auto-type-table path="../../../../src/types.ts" name="CreateNusmStoreOptions" />
+<auto-type-table
+  path="../../../../src/types.ts"
+  name="CreateNusmStoreOptions"
+/>
 
 ### `adapter`
 
@@ -83,7 +86,7 @@ configureNusm({
     source,
     validator: validateCandidate,
   },
-})
+});
 ```
 
 This captures the source only for subsequently created stores. A global source
@@ -99,10 +102,13 @@ type HydrationState =
   | "hydrated"
   | "discarded"
   | "error"
-  | "cancelled"
+  | "cancelled";
 ```
 
-<auto-type-table path="../../../../src/types.ts" name="ReadonlyHydrationStatus" />
+<auto-type-table
+  path="../../../../src/types.ts"
+  name="ReadonlyHydrationStatus"
+/>
 
 <auto-type-table path="../../../../src/types.ts" name="NusmEvent" />
 
@@ -129,10 +135,11 @@ const store = createNusmStore(
         typeof candidate === "object" &&
         candidate !== null &&
         typeof (candidate as { locale?: unknown }).locale === "string" &&
-        typeof (candidate as { sidebarOpen?: unknown }).sidebarOpen === "boolean",
+        typeof (candidate as { sidebarOpen?: unknown }).sidebarOpen ===
+          "boolean",
     },
   },
-)
+);
 
-await store.ready
+await store.ready;
 ```

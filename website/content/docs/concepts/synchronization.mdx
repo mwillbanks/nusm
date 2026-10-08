@@ -16,34 +16,38 @@ non-extractable HMAC-SHA-256 keys. You can also provide a matching
 non-extractable `CryptoKey` with `sign` and `verify` usage:
 
 ```ts
-import { configureNusm, createBroadcastChannelSyncSource } from "nusm"
+import { configureNusm, createBroadcastChannelSyncSource } from "nusm";
 
 const keyBytes = Uint8Array.from(
   atob(await fetch("/sync-key").then((response) => response.text())),
   (character) => character.charCodeAt(0),
-)
+);
 const key = await crypto.subtle.importKey(
   "raw",
   keyBytes,
   { name: "HMAC", hash: "SHA-256" },
   false,
   ["sign", "verify"],
-)
+);
 const source = createBroadcastChannelSyncSource({
   namespace: "my-app",
   key,
-})
+});
 
 configureNusm({
   sync: {
     source,
     validator: (candidate) => {
-      if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate))
-        return false
-      return typeof (candidate as { count?: unknown }).count === "number"
+      if (
+        typeof candidate !== "object" ||
+        candidate === null ||
+        Array.isArray(candidate)
+      )
+        return false;
+      return typeof (candidate as { count?: unknown }).count === "number";
     },
   },
-})
+});
 ```
 
 Every configured source requires a validator. The validator receives the

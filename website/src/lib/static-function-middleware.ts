@@ -96,8 +96,12 @@ export const basePathStaticFunctionMiddleware = createMiddleware({
       context.data,
     );
 
+    const existingContext = context.context;
     return {
-      context: { ...(context.context ?? {}), ...cached.context },
+      context: {
+        ...(typeof existingContext === "object" ? existingContext : {}),
+        ...cached.context,
+      },
       result: cached.result,
     } as unknown as FunctionClientResultWithContext<
       unknown,

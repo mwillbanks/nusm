@@ -16,11 +16,11 @@ Hydration reconciles initial application state with adapter state. It starts whe
 6. Mark the store ready and process queued external adapter events.
 
 ```ts
-await store.ready
+await store.ready;
 
-store.isReady
-store.hydration.overall
-store.hydration.byKey
+store.isReady;
+store.hydration.overall;
+store.hydration.byKey;
 ```
 
 Possible states are `pending`, `hydrated`, `discarded`, `error`, `cancelled`,
@@ -112,7 +112,7 @@ const store = createNusmStore(initialState, {
   onError: (error) => reportPersistenceError(error),
   persist: { strategy: "entire" },
   storeId: "settings",
-})
+});
 ```
 
 Read, baseline-write, and later persistence failures are reported. Fatal setup or hydration failures reject `ready`; per-unit failures are also visible in `hydration.byKey`.

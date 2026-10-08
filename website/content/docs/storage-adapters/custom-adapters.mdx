@@ -9,33 +9,35 @@ A custom adapter is a small object that owns storage operations and, optionally,
 ## The contract
 
 ```ts
-import type { NusmAdapter } from "nusm"
+import type { NusmAdapter } from "nusm";
 
 type NusmAdapter = {
-  name: string
-  getItem(key: string): unknown | null | Promise<unknown | null>
-  setItem(key: string, value: unknown): void | Promise<void>
-  removeItem(key: string): void | Promise<void>
-  getAllKeys?(): string[] | Promise<string[]>
-  clear?(): void | Promise<void>
+  name: string;
+  getItem(key: string): unknown | null | Promise<unknown | null>;
+  setItem(key: string, value: unknown): void | Promise<void>;
+  removeItem(key: string): void | Promise<void>;
+  getAllKeys?(): string[] | Promise<string[]>;
+  clear?(): void | Promise<void>;
   subscribe?(
     listener: (event: {
-      type: "set" | "remove" | "clear"
-      key?: string
+      type: "set" | "remove" | "clear";
+      key?: string;
     }) => void,
-  ): () => void
+  ): () => void;
   resolveKey?(params: {
-    storeId: string
-    sliceKey?: string
-    kind: "entire" | "slice"
-  }): string
-  pacer?: false | {
-    wait?: number
-    maxWait?: number
-    leading?: boolean
-    trailing?: boolean
-  }
-}
+    storeId: string;
+    sliceKey?: string;
+    kind: "entire" | "slice";
+  }): string;
+  pacer?:
+    | false
+    | {
+        wait?: number;
+        maxWait?: number;
+        leading?: boolean;
+        trailing?: boolean;
+      };
+};
 ```
 
 Only `name`, `getItem`, `setItem`, and `removeItem` are required.
@@ -43,15 +45,15 @@ Only `name`, `getItem`, `setItem`, and `removeItem` are required.
 ## A complete memory adapter
 
 ```ts title="memory-adapter.ts"
-import type { AdapterEvent, NusmAdapter } from "nusm"
+import type { AdapterEvent, NusmAdapter } from "nusm";
 
 export function createMemoryAdapter(): NusmAdapter {
-  const data = new Map<string, unknown>()
-  const listeners = new Set<(event: AdapterEvent) => void>()
+  const data = new Map<string, unknown>();
+  const listeners = new Set<(event: AdapterEvent) => void>();
 
   const emit = (event: AdapterEvent) => {
-    for (const listener of listeners) listener(event)
-  }
+    for (const listener of listeners) listener(event);
+  };
 
   return {
     name: "memory",
@@ -60,32 +62,32 @@ export function createMemoryAdapter(): NusmAdapter {
     getItem: (key) => data.get(key) ?? null,
 
     setItem: (key, value) => {
-      data.set(key, value)
-      emit({ key, type: "set" })
+      data.set(key, value);
+      emit({ key, type: "set" });
     },
 
     removeItem: (key) => {
-      data.delete(key)
-      emit({ key, type: "remove" })
+      data.delete(key);
+      emit({ key, type: "remove" });
     },
 
     getAllKeys: () => [...data.keys()],
 
     clear: () => {
-      data.clear()
-      emit({ type: "clear" })
+      data.clear();
+      emit({ type: "clear" });
     },
 
     subscribe: (listener) => {
-      listeners.add(listener)
-      return () => listeners.delete(listener)
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
 
     resolveKey: ({ storeId, kind, sliceKey }) =>
       kind === "entire"
         ? `memory:${storeId}:entire`
         : `memory:${storeId}:slice:${sliceKey}`,
-  }
+  };
 }
 ```
 
@@ -113,7 +115,7 @@ Use this to map logical identities into your platform. It must return a non-empt
 
 ```ts
 resolveKey: ({ storeId, kind, sliceKey }) =>
-  JSON.stringify({ app: "portal", storeId, kind, sliceKey })
+  JSON.stringify({ app: "portal", storeId, kind, sliceKey });
 ```
 
 ### `subscribe`
@@ -144,7 +146,7 @@ const store = createNusmStore(initialState, {
     },
   },
   storeId: "secure-preferences",
-})
+});
 ```
 
 Keep encryption, transport encoding, and backend errors inside the adapter. Keep schema checks and migrations in `hydrate.validate` where they can be reasoned about with the initial state.

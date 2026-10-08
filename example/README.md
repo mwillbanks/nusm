@@ -4,12 +4,12 @@ This standalone Bun and React application demonstrates how to build, inspect, an
 
 ## What the example demonstrates
 
-| Store | Adapter | What to try |
-| --- | --- | --- |
-| Workspace Pulse | Memory only | Add or complete tasks, filter live state, and edit `focusMinutes` from the inspector. |
-| Preferences | localStorage | Change durable UI preferences and inspect the persisted adapter tab. |
-| Live Session | sessionStorage | Advance session state and compare live memory with the current browser session. |
-| Activity Archive | IndexedDB | Record durable activity and inspect nested event records. |
+| Store            | Adapter        | What to try                                                                           |
+| ---------------- | -------------- | ------------------------------------------------------------------------------------- |
+| Workspace Pulse  | Memory only    | Add or complete tasks, filter live state, and edit `focusMinutes` from the inspector. |
+| Preferences      | localStorage   | Change durable UI preferences and inspect the persisted adapter tab.                  |
+| Live Session     | sessionStorage | Advance session state and compare live memory with the current browser session.       |
+| Activity Archive | IndexedDB      | Record durable activity and inspect nested event records.                             |
 
 Every persistent store writes a missing initial value before `store.ready` resolves. The adapter tabs therefore start with real values and report synchronized health with no pending keys. Reload tests prove that later localStorage, sessionStorage, and IndexedDB values hydrate into a new store lifecycle.
 
@@ -23,7 +23,7 @@ also requires the explicit `?sync` query parameter in production.
 
 ## Prerequisites
 
-- Bun 1.3 or newer.
+- Bun 1.4.2 or newer.
 - A modern browser with localStorage, sessionStorage, and IndexedDB.
 - The repository checkout, because the example deliberately resolves `nusm` through `file:../src`.
 
@@ -68,7 +68,7 @@ Memory edits affect live state only. Persisted-location edits affect the configu
 The stores live in [`src/stores.ts`](src/stores.ts). A persistent store needs an adapter, a persistence strategy, a stable display id, and optional Devtools instrumentation:
 
 ```ts
-import { createLocalStorageAdapter, createNusmStore } from "nusm"
+import { createLocalStorageAdapter, createNusmStore } from "nusm";
 
 export const preferences = createNusmStore(
   { accent: "violet", theme: "midnight" },
@@ -85,9 +85,9 @@ export const preferences = createNusmStore(
         typeof (candidate as { theme?: unknown }).theme === "string",
     },
   },
-)
+);
 
-await preferences.ready
+await preferences.ready;
 ```
 
 For slices, configure `persist.strategy` as `"slices"` and give each slice a unique logical key. Custom adapter `resolveKey` implementations must return one stable, non-empty physical key per configured persistence unit.
@@ -97,18 +97,22 @@ For slices, configure `persist.strategy` as `"slices"` and give each slice a uni
 The panel and its React/TanStack dependencies are optional. The root `nusm` entrypoint never imports them. An application that opts in imports the dedicated entrypoint and creates the plugin once:
 
 ```tsx
-import { TanStackDevtools } from "@tanstack/react-devtools"
-import { createNusmDevtoolsPlugin } from "nusm/devtools"
+import { TanStackDevtools } from "@tanstack/react-devtools";
+import { createNusmDevtoolsPlugin } from "nusm/devtools";
 
-const nusmPlugin = createNusmDevtoolsPlugin()
+const nusmPlugin = createNusmDevtoolsPlugin();
 
 export function DevelopmentTools() {
   return (
     <TanStackDevtools
-      config={{ defaultOpen: false, position: "bottom-right", triggerMode: "floating" }}
+      config={{
+        defaultOpen: false,
+        position: "bottom-right",
+        triggerMode: "floating",
+      }}
       plugins={[nusmPlugin]}
     />
-  )
+  );
 }
 ```
 

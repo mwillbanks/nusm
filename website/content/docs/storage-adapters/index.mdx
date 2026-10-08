@@ -8,12 +8,12 @@ Adapters own the physical persistence boundary: how values are read, written, re
 
 ## Built-in adapters
 
-| Adapter | Lifetime | Typical use | Default pacing |
-| --- | --- | --- | --- |
-| [localStorage](/docs/storage-adapters/local-storage) | Across reloads and browser restarts | Preferences, drafts, small durable state | Trailing 50 ms |
-| [sessionStorage](/docs/storage-adapters/session-storage) | Current browser tab session | Wizard progress, tab-scoped UI state | Trailing 50 ms |
-| [IndexedDB](/docs/storage-adapters/indexeddb) | Across reloads and browser restarts | Larger or async browser state | Trailing 100 ms |
-| [Custom](/docs/storage-adapters/custom-adapters) | Your system decides | Memory, native storage, remote caches, encrypted stores | Your policy |
+| Adapter                                                  | Lifetime                            | Typical use                                             | Default pacing  |
+| -------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------- | --------------- |
+| [localStorage](/docs/storage-adapters/local-storage)     | Across reloads and browser restarts | Preferences, drafts, small durable state                | Trailing 50 ms  |
+| [sessionStorage](/docs/storage-adapters/session-storage) | Current browser tab session         | Wizard progress, tab-scoped UI state                    | Trailing 50 ms  |
+| [IndexedDB](/docs/storage-adapters/indexeddb)            | Across reloads and browser restarts | Larger or async browser state                           | Trailing 100 ms |
+| [Custom](/docs/storage-adapters/custom-adapters)         | Your system decides                 | Memory, native storage, remote caches, encrypted stores | Your policy     |
 
 ## Shared browser adapter behavior
 
@@ -32,7 +32,7 @@ The built-in adapters rely on browser globals by default. Construct them in a br
 ```ts
 const adapter = createLocalStorageAdapter({
   storage: myStorageLike,
-})
+});
 ```
 
 `StorageLike` needs `getItem`, `setItem`, and `removeItem`. Enumeration and clearing are optional.

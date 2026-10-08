@@ -1,0 +1,11 @@
+{
+  "ignore": {
+    "files": [
+      "**/.output/**",
+      "**/.source/**",
+      "**/dist/**",
+      "**/coverage/**",
+      "website/src/routeTree.gen.ts"
+    ]
+  }
+}

@@ -7,7 +7,7 @@ icon: Atom
 React bindings live in `nusm/react`, keeping React out of the core package path.
 
 ```tsx
-import { useStore } from "nusm/react"
+import { useStore } from "nusm/react";
 ```
 
 ## Select the smallest value you need
@@ -16,7 +16,7 @@ import { useStore } from "nusm/react"
 const displayName = useStore(
   accountStore,
   (state) => state.profile.displayName,
-)
+);
 ```
 
 The selector runs against the current store state. By default, the selected value uses shallow equality from `fast-equals` to preserve the previous reference when the result is equivalent.
@@ -26,7 +26,7 @@ The selector runs against the current store state. By default, the selected valu
 The selector is optional:
 
 ```tsx
-const state = useStore(accountStore)
+const state = useStore(accountStore);
 ```
 
 Prefer a narrow selector for components that only need one field.
@@ -36,11 +36,9 @@ Prefer a narrow selector for components that only need one field.
 Set `equal: true` when a selector produces a nested structure whose deep equality should preserve its previous reference:
 
 ```tsx
-const profile = useStore(
-  accountStore,
-  (state) => state.profile,
-  { equal: true },
-)
+const profile = useStore(accountStore, (state) => state.profile, {
+  equal: true,
+});
 ```
 
 Deep comparison has a cost. Use it deliberately rather than as a default for every selector.
@@ -50,20 +48,20 @@ Deep comparison has a cost. Use it deliberately rather than as a default for eve
 Persistence begins immediately when the store is created. If your view cannot show initial state before hydration, gate that view on `ready`:
 
 ```tsx
-import { useEffect, useState } from "react"
-import { useStore } from "nusm/react"
-import { preferencesStore } from "./stores/preferences"
+import { useEffect, useState } from "react";
+import { useStore } from "nusm/react";
+import { preferencesStore } from "./stores/preferences";
 
 export function Preferences() {
-  const [ready, setReady] = useState(preferencesStore.isReady)
-  const theme = useStore(preferencesStore, (state) => state.theme)
+  const [ready, setReady] = useState(preferencesStore.isReady);
+  const theme = useStore(preferencesStore, (state) => state.theme);
 
   useEffect(() => {
-    void preferencesStore.ready.then(() => setReady(true))
-  }, [])
+    void preferencesStore.ready.then(() => setReady(true));
+  }, []);
 
-  if (!ready) return <p>Restoring preferences…</p>
-  return <p>Theme: {theme}</p>
+  if (!ready) return <p>Restoring preferences…</p>;
+  return <p>Theme: {theme}</p>;
 }
 ```
 

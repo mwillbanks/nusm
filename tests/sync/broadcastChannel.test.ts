@@ -6,10 +6,8 @@ import {
   type NusmSyncEvent,
 } from "../../src/index.js";
 import { createHmacKey, signEnvelope } from "../../src/sync/protocol.js";
-import { FakeBroadcastChannel } from "../helpers/fake-broadcast-channel.js";
+import { FakeBroadcastChannel as TestBroadcastChannel } from "../helpers/fake-broadcast-channel.js";
 import { createMemoryAdapter } from "../helpers/memory-adapter.js";
-
-const TestBroadcastChannel = FakeBroadcastChannel;
 
 const key = () =>
   new Uint8Array(Array.from({ length: 32 }, (_, index) => index + 1));

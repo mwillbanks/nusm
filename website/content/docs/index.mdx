@@ -12,16 +12,16 @@ It keeps the store model intentionally familiar: read `store.state`, call `store
 
 Most state starts simple and only later needs persistence. Adding it at that point often spreads storage reads, serialization, hydration flags, migrations, and write scheduling throughout the application. nusm keeps those concerns behind one store boundary.
 
-| Capability | What it gives you |
-| --- | --- |
-| TanStack Store semantics | A small observable store and familiar `setState` updates |
-| Adapter-based persistence | Browser adapters out of the box and a compact custom contract |
-| Entire or slice persistence | Store everything, or write only the fields that should survive |
-| Controlled hydration | Validate, transform, discard, or merge persisted values |
-| Scheduled writes | Debounce persistence with `@tanstack/pacer` or write immediately |
-| External synchronization | React to adapter events such as browser storage changes |
-| React integration | A selector-based `useStore` hook with shallow or deep equality |
-| Optional Devtools | Inspect and edit memory, persisted state, hydration, and history |
+| Capability                  | What it gives you                                                |
+| --------------------------- | ---------------------------------------------------------------- |
+| TanStack Store semantics    | A small observable store and familiar `setState` updates         |
+| Adapter-based persistence   | Browser adapters out of the box and a compact custom contract    |
+| Entire or slice persistence | Store everything, or write only the fields that should survive   |
+| Controlled hydration        | Validate, transform, discard, or merge persisted values          |
+| Scheduled writes            | Debounce persistence with `@tanstack/pacer` or write immediately |
+| External synchronization    | React to adapter events such as browser storage changes          |
+| React integration           | A selector-based `useStore` hook with shallow or deep equality   |
+| Optional Devtools           | Inspect and edit memory, persisted state, hydration, and history |
 
 ## The mental model
 
@@ -49,10 +49,10 @@ import {
   createLocalStorageAdapter,
   createNusmStore,
   createSessionStorageAdapter,
-} from "nusm"
+} from "nusm";
 
 // Resets on reload.
-export const workspace = createNusmStore({ selectedId: null })
+export const workspace = createNusmStore({ selectedId: null });
 
 // Survives reloads in this tab, then expires with the tab session.
 export const session = createNusmStore(
@@ -69,7 +69,7 @@ export const session = createNusmStore(
         typeof (candidate as { startedAt?: unknown }).startedAt === "number",
     },
   },
-)
+);
 
 // Returns in later browser sessions.
 export const preferences = createNusmStore(
@@ -85,7 +85,7 @@ export const preferences = createNusmStore(
         typeof (candidate as { theme?: unknown }).theme === "string",
     },
   },
-)
+);
 ```
 
 Choose storage by the state lifetime. State that should not outlive a tab can still belong in a nusm store. Use `sessionStorage` when it should survive a refresh within that tab. Use slice persistence when only selected fields in one store should survive.
@@ -93,15 +93,12 @@ Choose storage by the state lifetime. State that should not outlive a tab can st
 ## A small example
 
 ```ts
-import {
-  createLocalStorageAdapter,
-  createNusmStore,
-} from "nusm"
+import { createLocalStorageAdapter, createNusmStore } from "nusm";
 
 type Preferences = {
-  accent: "cyan" | "violet"
-  compact: boolean
-}
+  accent: "cyan" | "violet";
+  compact: boolean;
+};
 
 export const preferences = createNusmStore<Preferences>(
   { accent: "cyan", compact: false },
@@ -119,10 +116,10 @@ export const preferences = createNusmStore<Preferences>(
         typeof (candidate as { compact?: unknown }).compact === "boolean",
     },
   },
-)
+);
 
-await preferences.ready
-preferences.setState((state) => ({ ...state, compact: true }))
+await preferences.ready;
+preferences.setState((state) => ({ ...state, compact: true }));
 ```
 
 The adapter key is `nusm:preferences:entire`. Updates are serialized with SuperJSON and, for local storage, written on a trailing 50 ms schedule.

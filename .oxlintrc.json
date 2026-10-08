@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "typescript",
+    "react",
+    "react-hooks",
+    "jsx-a11y",
+    "import",
+    "unicorn",
+    "oxc"
+  ],
+  "categories": { "correctness": "error" },
+  "rules": { "jsx-a11y/prefer-tag-over-role": "off" },
+  "env": { "browser": true, "node": true },
+  "globals": { "Bun": "readonly" },
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/.output/**",
+    "**/.source/**",
+    "**/coverage/**",
+    "website/src/routeTree.gen.ts"
+  ]
+}

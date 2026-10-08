@@ -5,7 +5,7 @@ icon: HardDrive
 ---
 
 ```ts
-import { createLocalStorageAdapter, createNusmStore } from "nusm"
+import { createLocalStorageAdapter, createNusmStore } from "nusm";
 
 const preferences = createNusmStore(
   { density: "comfortable", theme: "system" },
@@ -21,33 +21,35 @@ const preferences = createNusmStore(
         typeof (candidate as { theme?: unknown }).theme === "string",
     },
   },
-)
+);
 ```
 
 ## Options
 
 ```ts
 interface StorageAdapterOptions {
-  storage?: StorageLike
-  prefix?: string
-  serialize?: (value: unknown) => string
-  deserialize?: (raw: string) => unknown
-  pacer?: false | {
-    wait?: number
-    maxWait?: number
-    leading?: boolean
-    trailing?: boolean
-  }
+  storage?: StorageLike;
+  prefix?: string;
+  serialize?: (value: unknown) => string;
+  deserialize?: (raw: string) => unknown;
+  pacer?:
+    | false
+    | {
+        wait?: number;
+        maxWait?: number;
+        leading?: boolean;
+        trailing?: boolean;
+      };
 }
 ```
 
-| Option | Default | Purpose |
-| --- | --- | --- |
-| `storage` | `window.localStorage` | Inject another synchronous Storage-like target |
-| `prefix` | `"nusm"` | Namespace all physical keys |
-| `serialize` | `superjson.stringify` | Encode state before writing |
-| `deserialize` | `superjson.parse` | Decode matching stored values |
-| `pacer` | trailing, 50 ms | Control write scheduling |
+| Option        | Default               | Purpose                                        |
+| ------------- | --------------------- | ---------------------------------------------- |
+| `storage`     | `window.localStorage` | Inject another synchronous Storage-like target |
+| `prefix`      | `"nusm"`              | Namespace all physical keys                    |
+| `serialize`   | `superjson.stringify` | Encode state before writing                    |
+| `deserialize` | `superjson.parse`     | Decode matching stored values                  |
+| `pacer`       | trailing, 50 ms       | Control write scheduling                       |
 
 ## Custom namespace and serializer
 
@@ -57,7 +59,7 @@ const adapter = createLocalStorageAdapter({
   serialize: JSON.stringify,
   deserialize: JSON.parse,
   pacer: { trailing: true, wait: 150 },
-})
+});
 ```
 
 The current scheduler uses `wait`, `leading`, and `trailing`; `maxWait` remains in the public type but is not forwarded yet.

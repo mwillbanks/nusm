@@ -58,7 +58,8 @@ describe("devtools serialization", () => {
       },
     );
     expect(isRoundTrippableForDevtools(nonErrorPrototype)).toBe(false);
-    const sparse = new Array(2);
+    const sparse: unknown[] = [];
+    sparse.length = 2;
     expect(isRoundTrippableForDevtools(sparse)).toBe(false);
   });
 

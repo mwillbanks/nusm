@@ -377,11 +377,9 @@ describe("nusm persistence edges", () => {
       expect(Object.hasOwn(objectResult, "reviewOwnKey")).toBe(true);
       expect(objectResult.reviewOwnKey).toBe("safe");
 
-      const arrayResult = setValueAtPath(
-        new Array(1_777),
-        [1_777],
-        "safe",
-      ) as unknown[];
+      const sparse: unknown[] = [];
+      sparse.length = 1_777;
+      const arrayResult = setValueAtPath(sparse, [1_777], "safe") as unknown[];
       expect(arraySetterCalls).toBe(0);
       expect(Object.hasOwn(arrayResult, 1_777)).toBe(true);
       expect(arrayResult[1_777]).toBe("safe");

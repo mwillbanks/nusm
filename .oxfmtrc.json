@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "useTabs": false,
+  "tabWidth": 2,
+  "printWidth": 80,
+  "singleQuote": false,
+  "semi": true,
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/.output/**",
+    "**/.source/**",
+    "**/coverage/**",
+    "website/src/routeTree.gen.ts",
+    "**/bun.lock"
+  ]
+}

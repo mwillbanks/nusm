@@ -1,7 +1,5 @@
-/// <reference types="react" />
-
 import { deepEqual, shallowEqual } from "fast-equals";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
 
 import type { NusmStore } from "../types.js";
 
@@ -29,7 +27,7 @@ export function useStore<TState, TSelected = NoInfer<TState>>(
 ): TSelected {
   const equal = options.equal ? deepEqual : shallowEqual;
   const getSnapshot = () => store.state;
-  const snapshot = useSyncExternalStore(
+  return useSyncExternalStoreWithSelector(
     (notify) => {
       const subscription = store.subscribe(notify);
       return typeof subscription === "function"
@@ -38,15 +36,7 @@ export function useStore<TState, TSelected = NoInfer<TState>>(
     },
     getSnapshot,
     getSnapshot,
+    selector,
+    equal,
   );
-  const selected = selector(snapshot as NoInfer<TState>);
-  const [selectedState, setSelectedState] = useState(selected);
-
-  useEffect(() => {
-    setSelectedState((previous) =>
-      equal(previous, selected) ? previous : selected,
-    );
-  }, [equal, selected]);
-
-  return selectedState;
 }

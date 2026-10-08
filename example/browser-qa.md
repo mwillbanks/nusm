@@ -9,19 +9,19 @@
 
 ## Live checks
 
-| Surface | Browser-level result |
-| --- | --- |
-| App readiness | Reported `4 of 4 stores ready` with a live bidirectional event bridge. |
-| Navigation | Command center, Stores, and Signals each rendered as exclusive labelled regions. |
-| Responsive layout | Stores and Signals remained operable at 390 x 844 with no horizontal overflow, console warning, or console error. |
-| TanStack integration | The TanStack trigger opened the native `nusm` plugin panel with the canonical nusm logo. |
-| Store selection | Four real stores displayed stable instance discriminators. Two live duplicate-display-id snapshots (`qa-duplicate-a` and `qa-duplicate-b`) remained independently visible; searching the second instance hid only the first and selecting it rendered `duplicate-live · instance qa-duplicate-b`. |
-| localStorage | The adapter tab rendered `accent`, `density`, `shortcuts`, and `theme` values and reported ready/synchronized hydration. |
-| sessionStorage | The adapter tab rendered `activeView`, `drafts`, and `lastCommand` values and reported ready/synchronized hydration. |
-| IndexedDB | The adapter tab rendered three nested activity events and reported ready/synchronized hydration. |
-| Bidirectional mutation | Editing `workspace-pulse.focusMinutes` from `96` to `128` in the panel updated both the Devtools row and the live Signals visualization; the panel acknowledged `set path complete`. |
-| Devpanel UX | Search, overview/memory/adapter/timeline/about tabs, copy, raw edit, add, edit, remove, refresh, health, hydration, and last-write affordances were present in the mounted panel. |
-| Console | Browser warning/error log was empty after navigation, adapter inspection, and mutation. |
+| Surface                | Browser-level result                                                                                                                                                                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| App readiness          | Reported `4 of 4 stores ready` with a live bidirectional event bridge.                                                                                                                                                                                                                            |
+| Navigation             | Command center, Stores, and Signals each rendered as exclusive labelled regions.                                                                                                                                                                                                                  |
+| Responsive layout      | Stores and Signals remained operable at 390 x 844 with no horizontal overflow, console warning, or console error.                                                                                                                                                                                 |
+| TanStack integration   | The TanStack trigger opened the native `nusm` plugin panel with the canonical nusm logo.                                                                                                                                                                                                          |
+| Store selection        | Four real stores displayed stable instance discriminators. Two live duplicate-display-id snapshots (`qa-duplicate-a` and `qa-duplicate-b`) remained independently visible; searching the second instance hid only the first and selecting it rendered `duplicate-live · instance qa-duplicate-b`. |
+| localStorage           | The adapter tab rendered `accent`, `density`, `shortcuts`, and `theme` values and reported ready/synchronized hydration.                                                                                                                                                                          |
+| sessionStorage         | The adapter tab rendered `activeView`, `drafts`, and `lastCommand` values and reported ready/synchronized hydration.                                                                                                                                                                              |
+| IndexedDB              | The adapter tab rendered three nested activity events and reported ready/synchronized hydration.                                                                                                                                                                                                  |
+| Bidirectional mutation | Editing `workspace-pulse.focusMinutes` from `96` to `128` in the panel updated both the Devtools row and the live Signals visualization; the panel acknowledged `set path complete`.                                                                                                              |
+| Devpanel UX            | Search, overview/memory/adapter/timeline/about tabs, copy, raw edit, add, edit, remove, refresh, health, hydration, and last-write affordances were present in the mounted panel.                                                                                                                 |
+| Console                | Browser warning/error log was empty after navigation, adapter inspection, and mutation.                                                                                                                                                                                                           |
 
 ## Production server checks
 

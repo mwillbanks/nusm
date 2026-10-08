@@ -9,17 +9,23 @@ icon: Radio
 ```ts
 function createBroadcastChannelSyncSource<TState = unknown>(
   options: BroadcastChannelSyncSourceOptions,
-): NusmSyncSource<TState>
+): NusmSyncSource<TState>;
 ```
 
-<auto-type-table path="../../../../src/sync/broadcastChannel.ts" name="BroadcastChannelSyncSourceOptions" />
+<auto-type-table
+  path="../../../../src/sync/broadcastChannel.ts"
+  name="BroadcastChannelSyncSourceOptions"
+/>
 
 `key` must be a non-extractable HMAC-SHA-256 `CryptoKey` with `sign` and
 `verify` usage, or at least 32 random bytes for runtime import. `namespace`
 and every store `storeId` contribute to an opaque channel capability. The
 optional limits can only reduce the built-in protocol maxima.
 
-<auto-type-table path="../../../../src/sync/broadcastChannel.ts" name="BroadcastSyncLimits" />
+<auto-type-table
+  path="../../../../src/sync/broadcastChannel.ts"
+  name="BroadcastSyncLimits"
+/>
 
 ## Global and store options
 
@@ -29,17 +35,29 @@ optional limits can only reduce the built-in protocol maxima.
 
 <auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncContext" />
 
-<auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncSourceContext" />
+<auto-type-table
+  path="../../../../src/sync/types.ts"
+  name="NusmSyncSourceContext"
+/>
 
-<auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncValidator" />
+<auto-type-table
+  path="../../../../src/sync/types.ts"
+  name="NusmSyncValidator"
+/>
 
-<auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncValidationResult" />
+<auto-type-table
+  path="../../../../src/sync/types.ts"
+  name="NusmSyncValidationResult"
+/>
 
 <auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncSource" />
 
 <auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncEvent" />
 
-<auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncEventKind" />
+<auto-type-table
+  path="../../../../src/sync/types.ts"
+  name="NusmSyncEventKind"
+/>
 
 <auto-type-table path="../../../../src/sync/types.ts" name="NusmSyncRevision" />
 

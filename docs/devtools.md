@@ -19,7 +19,7 @@ optional boundary.
 ## Connect a store
 
 ```ts
-import { createLocalStorageAdapter, createNusmStore } from "nusm"
+import { createLocalStorageAdapter, createNusmStore } from "nusm";
 
 export const settings = createNusmStore(
   { profile: { displayName: "Ada" }, shortcuts: true },
@@ -33,27 +33,33 @@ export const settings = createNusmStore(
         typeof candidate === "object" &&
         candidate !== null &&
         typeof (candidate as { profile?: unknown }).profile === "object" &&
-        (candidate as { profile?: { displayName?: unknown } }).profile !== null &&
-        typeof (candidate as { profile?: { displayName?: unknown } }).profile?.displayName === "string" &&
+        (candidate as { profile?: { displayName?: unknown } }).profile !==
+          null &&
+        typeof (candidate as { profile?: { displayName?: unknown } }).profile
+          ?.displayName === "string" &&
         typeof (candidate as { shortcuts?: unknown }).shortcuts === "boolean",
     },
   },
-)
+);
 ```
 
 ```tsx
-import { TanStackDevtools } from "@tanstack/react-devtools"
-import { createNusmDevtoolsPlugin } from "nusm/devtools"
+import { TanStackDevtools } from "@tanstack/react-devtools";
+import { createNusmDevtoolsPlugin } from "nusm/devtools";
 
-const nusmPlugin = createNusmDevtoolsPlugin()
+const nusmPlugin = createNusmDevtoolsPlugin();
 
 export function DevelopmentTools() {
   return (
     <TanStackDevtools
-      config={{ defaultOpen: false, position: "bottom-right", triggerMode: "floating" }}
+      config={{
+        defaultOpen: false,
+        position: "bottom-right",
+        triggerMode: "floating",
+      }}
       plugins={[nusmPlugin]}
     />
-  )
+  );
 }
 ```
 

@@ -21,7 +21,7 @@ const settings = createNusmStore(
         typeof (candidate as { theme?: unknown }).theme === "string",
     },
   },
-)
+);
 ```
 
 Keep the identifier stable across releases. If an earlier nusm version derived

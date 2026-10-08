@@ -6,12 +6,12 @@ icon: Layers
 
 Persistence is opt-in and belongs to each store, not to the application as a whole. Omit both `adapter` and `persist` for in-memory state. Add an adapter only when that store must cross a storage boundary; every persisted store requires a stable `storeId`.
 
-| Required lifetime | Store configuration |
-| --- | --- |
-| Until reload | No adapter; state stays in memory |
-| Across reloads in the current tab | `createSessionStorageAdapter()` |
-| Across later browser sessions | `createLocalStorageAdapter()` or `createIndexDbAdapter()` |
-| Application-defined | Custom adapter |
+| Required lifetime                 | Store configuration                                       |
+| --------------------------------- | --------------------------------------------------------- |
+| Until reload                      | No adapter; state stays in memory                         |
+| Across reloads in the current tab | `createSessionStorageAdapter()`                           |
+| Across later browser sessions     | `createLocalStorageAdapter()` or `createIndexDbAdapter()` |
+| Application-defined               | Custom adapter                                            |
 
 Every persisted store must provide a stable `storeId`. A Devtools display name
 never supplies persistence identity.
@@ -47,11 +47,13 @@ const store = createNusmStore(
         typeof (candidate as { filters?: unknown }).filters === "object" &&
         (candidate as { filters?: { status?: unknown } }).filters !== null &&
         ["all", "open", "closed"].includes(
-          String((candidate as { filters: { status?: unknown } }).filters.status),
+          String(
+            (candidate as { filters: { status?: unknown } }).filters.status,
+          ),
         ),
     },
   },
-)
+);
 ```
 
 The default physical key is:
@@ -67,13 +69,13 @@ On hydration, persisted data deep-merges over initial state. Arrays are replaced
 Use `slices` when only part of the store should survive, when fields need separate keys, or when unrelated updates should not schedule a write.
 
 ```ts
-import type { PersistSlice } from "nusm"
+import type { PersistSlice } from "nusm";
 
 type WorkspaceState = {
-  draft: string
-  filters: { status: "all" | "open" | "closed" }
-  online: boolean
-}
+  draft: string;
+  filters: { status: "all" | "open" | "closed" };
+  online: boolean;
+};
 
 const slices: Array<PersistSlice<WorkspaceState>> = [
   {
@@ -84,7 +86,7 @@ const slices: Array<PersistSlice<WorkspaceState>> = [
       filters: value as WorkspaceState["filters"],
     }),
   },
-]
+];
 
 const store = createNusmStore<WorkspaceState>(
   { draft: "", filters: { status: "all" }, online: true },
@@ -100,12 +102,14 @@ const store = createNusmStore<WorkspaceState>(
         typeof (candidate as { filters?: unknown }).filters === "object" &&
         (candidate as { filters?: unknown }).filters !== null &&
         ["all", "open", "closed"].includes(
-          String((candidate as { filters: { status?: unknown } }).filters.status),
+          String(
+            (candidate as { filters: { status?: unknown } }).filters.status,
+          ),
         ) &&
         typeof (candidate as { online?: unknown }).online === "boolean",
     },
   },
-)
+);
 ```
 
 Only a change where `Object.is(previousSelected, nextSelected)` is false schedules that slice. The default key is `nusm:workspace:slice:filters`.
@@ -131,13 +135,13 @@ const adapter = createLocalStorageAdapter({
     trailing: true,
     wait: 100,
   },
-})
+});
 ```
 
 Set `pacer: false` to start a write immediately for every scheduled persistence operation:
 
 ```ts
-const adapter = createSessionStorageAdapter({ pacer: false })
+const adapter = createSessionStorageAdapter({ pacer: false });
 ```
 
 The built-in defaults are 50 ms trailing for local and session storage, and 100 ms trailing for IndexedDB.
@@ -148,9 +152,7 @@ Built-in adapters accept `prefix` where applicable. A custom adapter can take co
 
 ```ts
 resolveKey: ({ storeId, kind, sliceKey }) =>
-  kind === "entire"
-    ? `app:${storeId}`
-    : `app:${storeId}:${sliceKey}`
+  kind === "entire" ? `app:${storeId}` : `app:${storeId}:${sliceKey}`;
 ```
 
 nusm resolves each configured unit once and reuses that key for hydration, writes, external events, and Devtools commands.

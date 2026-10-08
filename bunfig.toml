@@ -1,3 +1,6 @@
+[install]
+linker = "hoisted"
+
 [install.security]
 scanner = "@bun-security-scanner/osv"
 

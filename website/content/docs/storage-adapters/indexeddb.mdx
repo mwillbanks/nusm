@@ -5,7 +5,7 @@ icon: Cylinder
 ---
 
 ```ts
-import { createIndexDbAdapter, createNusmStore } from "nusm"
+import { createIndexDbAdapter, createNusmStore } from "nusm";
 
 const activity = createNusmStore(
   { entries: [] as Array<{ id: string; message: string }> },
@@ -17,32 +17,32 @@ const activity = createNusmStore(
     persist: { strategy: "entire" },
     storeId: "activity",
   },
-)
+);
 
-await activity.ready
+await activity.ready;
 ```
 
 ## Options
 
 ```ts
 interface IndexDbAdapterOptions {
-  dbName?: string
-  storeName?: string
-  version?: number
-  serialize?: (value: unknown) => string
-  deserialize?: (raw: string) => unknown
-  pacer?: NusmPacerConfig
+  dbName?: string;
+  storeName?: string;
+  version?: number;
+  serialize?: (value: unknown) => string;
+  deserialize?: (raw: string) => unknown;
+  pacer?: NusmPacerConfig;
 }
 ```
 
-| Option | Default | Purpose |
-| --- | --- | --- |
-| `dbName` | `"nusm"` | IndexedDB database name |
-| `storeName` | `"nusm"` | Object store used for persistence units |
-| `version` | Reserved; runtime currently opens version `1` | Public option retained for compatibility |
-| `serialize` | `superjson.stringify` | Encode values before storing them |
-| `deserialize` | `superjson.parse` | Decode stored strings |
-| `pacer` | trailing, 100 ms | Control asynchronous write scheduling |
+| Option        | Default                                       | Purpose                                  |
+| ------------- | --------------------------------------------- | ---------------------------------------- |
+| `dbName`      | `"nusm"`                                      | IndexedDB database name                  |
+| `storeName`   | `"nusm"`                                      | Object store used for persistence units  |
+| `version`     | Reserved; runtime currently opens version `1` | Public option retained for compatibility |
+| `serialize`   | `superjson.stringify`                         | Encode values before storing them        |
+| `deserialize` | `superjson.parse`                             | Decode stored strings                    |
+| `pacer`       | trailing, 100 ms                              | Control asynchronous write scheduling    |
 
 ## Behavior
 
