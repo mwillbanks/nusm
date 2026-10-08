@@ -441,26 +441,36 @@ export const createNusmSyncCoordinator = <TState>(
         epoch: revisionEpoch,
         senderId: localId,
       };
-      while (queuedPublishes.length > 0) {
-        const queued = queuedPublishes.splice(0);
-        for (const event of queued) {
-          previous = rebaseReplayRevision(previous);
-          previous = nextRevisionAfter(previous);
-          event.revision = { ...previous };
-          revisionCounter = previous.counter;
-          revisionEpoch = previous.epoch ?? "0";
-          revisionProgress.set(localId, {
-            counter: revisionCounter,
-            epoch: revisionEpoch,
-          });
-          try {
-            await options.onEvent(event);
-          } catch (error) {
-            report(error);
-          }
-          await rawPublish(event);
+      const replayEvents = async (
+        queued: NusmSyncEvent<TState>[],
+        index: number,
+      ): Promise<void> => {
+        if (index >= queued.length) return;
+        const event = queued[index];
+        if (!event) return;
+        previous = rebaseReplayRevision(previous);
+        previous = nextRevisionAfter(previous);
+        event.revision = { ...previous };
+        revisionCounter = previous.counter;
+        revisionEpoch = previous.epoch ?? "0";
+        revisionProgress.set(localId, {
+          counter: revisionCounter,
+          epoch: revisionEpoch,
+        });
+        try {
+          await options.onEvent(event);
+        } catch (error) {
+          report(error);
         }
-      }
+        await rawPublish(event);
+        await replayEvents(queued, index + 1);
+      };
+      const replayBatches = async (): Promise<void> => {
+        if (queuedPublishes.length === 0) return;
+        await replayEvents(queuedPublishes.splice(0), 0);
+        await replayBatches();
+      };
+      await replayBatches();
       // The authoritative revision is now represented by `revisionCounter`.
       // Do not retain a replay tail: an empty drain must not influence the
       // next local revision after a snapshot advances the clock.
@@ -848,10 +858,14 @@ export const createNusmSyncCoordinator = <TState>(
     }
   };
   const startSources = async () => {
-    for (const source of sources) {
-      if (disposed) return;
+    const startNext = async (index: number): Promise<void> => {
+      if (disposed || index >= sources.length) return;
+      const source = sources[index];
+      if (!source) return;
       await startSource(source);
-    }
+      await startNext(index + 1);
+    };
+    await startNext(0);
     if (disposed) return;
     if (status === "pending") setStatus("active");
   };
@@ -1034,10 +1048,23 @@ export const createNusmSyncCoordinator = <TState>(
   };
   const disposeResources = async () => {
     const failures: unknown[] = [];
-    for (const cleanup of cleanups.splice(0))
+    const cleanupTasks = cleanups.splice(0);
+    const runCleanups = async (index: number): Promise<void> => {
+      if (index >= cleanupTasks.length) return;
+      const cleanup = cleanupTasks[index];
+      if (!cleanup) return;
       await runCleanup(cleanup, failures);
-    for (const source of sources)
+      await runCleanups(index + 1);
+    };
+    const disposeSources = async (index: number): Promise<void> => {
+      if (index >= sources.length) return;
+      const source = sources[index];
+      if (!source) return;
       await runCleanup(() => source.dispose?.(sourceContext), failures);
+      await disposeSources(index + 1);
+    };
+    await runCleanups(0);
+    await disposeSources(0);
     if (failures.length > 0) throw new AggregateError(failures);
   };
   const dispose = async () => {

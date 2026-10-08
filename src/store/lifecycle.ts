@@ -13,7 +13,10 @@ export const runLifecycleCleanup = async (
       report(failure);
     }
   };
-  for (const cleanup of cleanups) {
+  const runNext = async (index: number): Promise<void> => {
+    if (index >= cleanups.length) return;
+    const cleanup = cleanups[index];
+    if (!cleanup) return;
     try {
       await cleanup();
     } catch (error) {
@@ -24,7 +27,9 @@ export const runLifecycleCleanup = async (
     } catch (error) {
       collect(error);
     }
-  }
+    await runNext(index + 1);
+  };
+  await runNext(0);
   return failures;
 };
 

@@ -575,11 +575,13 @@ export function createNusmStore<TState>(
   ): string[] | undefined => {
     if (strategy === "entire")
       return resolvedEntireKey ? [resolvedEntireKey] : undefined;
-    return slices
-      .filter(
-        (slice) => !deepEqual(slice.select(previous), slice.select(current)),
-      )
-      .map((slice) => resolvedSliceKeys.get(slice.key) ?? slice.key);
+    const changedKeys: string[] = [];
+    for (const slice of slices) {
+      if (!deepEqual(slice.select(previous), slice.select(current))) {
+        changedKeys.push(resolvedSliceKeys.get(slice.key) ?? slice.key);
+      }
+    }
+    return changedKeys;
   };
   const scheduleEntirePersistence = (
     previous: TState,
@@ -596,12 +598,13 @@ export function createNusmStore<TState>(
     current: TState,
     allowedKeys?: readonly string[],
   ) => {
+    const allowedKeySet = allowedKeys ? new Set(allowedKeys) : undefined;
     for (const slice of slices) {
       const previousSlice = slice.select(previous);
       const nextSlice = slice.select(current);
       if (deepEqual(previousSlice, nextSlice)) continue;
       const key = resolveKey({ kind: "slice", sliceKey: slice.key });
-      if (allowedKeys && !allowedKeys.includes(key)) continue;
+      if (allowedKeySet && !allowedKeySet.has(key)) continue;
       enqueuePersist({
         key,
         kind: "slice",
@@ -754,37 +757,43 @@ export function createNusmStore<TState>(
       return nextState;
     }
 
-    for (const slice of slices) {
+    const hydrateSlice = async (index: number): Promise<void> => {
+      if (index >= slices.length) return;
+      const slice = slices[index];
+      if (!slice) return;
       const key = resolveKey({ kind: "slice", sliceKey: slice.key });
       try {
         const raw = await adapter?.getItem(key);
         assertHydrationCurrent(generation);
         if (raw == null) {
           missingSlices.push(slice);
-          continue;
-        }
-        let persistedValue: unknown = raw;
-        if (hydrateConfig?.validate) {
-          const result = resolveValidateResult(
-            hydrateConfig.validate(persistedValue),
-            persistedValue,
-          );
-          if (!result.ok) {
-            defineRecordValue(hydrationStatus.byKey, slice.key, "discarded");
-            devtoolsEmitter?.emitEvent({
-              sliceKey: slice.key,
-              storeId: storeIdValue,
-              ts: Date.now(),
-              type: "hydrate_discarded",
-            });
-            continue;
+        } else {
+          let persistedValue: unknown = raw;
+          if (hydrateConfig?.validate) {
+            const result = resolveValidateResult(
+              hydrateConfig.validate(persistedValue),
+              persistedValue,
+            );
+            if (!result.ok) {
+              defineRecordValue(hydrationStatus.byKey, slice.key, "discarded");
+              devtoolsEmitter?.emitEvent({
+                sliceKey: slice.key,
+                storeId: storeIdValue,
+                ts: Date.now(),
+                type: "hydrate_discarded",
+              });
+            } else {
+              persistedValue = result.value;
+              nextState = slice.apply(nextState, persistedValue);
+              hydratedSliceValues.push({ slice, value: persistedValue });
+              defineRecordValue(hydrationStatus.byKey, slice.key, "hydrated");
+            }
+          } else {
+            nextState = slice.apply(nextState, persistedValue);
+            hydratedSliceValues.push({ slice, value: persistedValue });
+            defineRecordValue(hydrationStatus.byKey, slice.key, "hydrated");
           }
-          persistedValue = result.value;
         }
-
-        nextState = slice.apply(nextState, persistedValue);
-        hydratedSliceValues.push({ slice, value: persistedValue });
-        defineRecordValue(hydrationStatus.byKey, slice.key, "hydrated");
       } catch (error) {
         if (!lifecycle.isCurrent(generation)) throw createAbortError();
         defineRecordValue(hydrationStatus.byKey, slice.key, "error");
@@ -797,7 +806,9 @@ export function createNusmStore<TState>(
         });
         reportError(error);
       }
-    }
+      await hydrateSlice(index + 1);
+    };
+    await hydrateSlice(0);
 
     const missingBaselines = missingSlices.map((slice) => ({
       baseline: slice.select(initialState),
@@ -824,7 +835,11 @@ export function createNusmStore<TState>(
       );
     }
     nextState = baselineState;
-    for (const { baseline, key, slice } of missingBaselines) {
+    const persistBaseline = async (index: number): Promise<void> => {
+      if (index >= missingBaselines.length) return;
+      const current = missingBaselines[index];
+      if (!current) return;
+      const { baseline, key, slice } = current;
       try {
         await persistHydrationBaseline({
           key,
@@ -845,7 +860,9 @@ export function createNusmStore<TState>(
         });
         reportError(error);
       }
-    }
+      await persistBaseline(index + 1);
+    };
+    await persistBaseline(0);
 
     return nextState;
   };
@@ -865,16 +882,19 @@ export function createNusmStore<TState>(
     hydratedForSync = true;
     replayingDeferredSyncEvents = true;
     try {
-      while (true) {
-        while (deferredSyncEvents.length > 0) {
-          const event = deferredSyncEvents.shift();
-          if (event) await applySyncStateEvent(event, true);
+      const drain = async (): Promise<void> => {
+        const event = deferredSyncEvents.shift();
+        if (event) {
+          await applySyncStateEvent(event, true);
           assertHydrationCurrent(generation);
+          await drain();
+          return;
         }
         await syncCoordinator?.waitForIdle(!syncOptimistic);
         assertHydrationCurrent(generation);
-        if (deferredSyncEvents.length === 0) return;
-      }
+        if (deferredSyncEvents.length > 0) await drain();
+      };
+      await drain();
     } finally {
       replayingDeferredSyncEvents = false;
     }
@@ -953,7 +973,7 @@ export function createNusmStore<TState>(
     event: AdapterEvent,
   ): Promise<{ ok: boolean; value: TState }> => {
     // Adapter subscriptions require a validator during construction.
-    const validator = syncValidator!;
+    const validator = syncValidator as NusmSyncValidator<TState>;
     try {
       const result = await validator(candidate, {
         kind: "adapter",
@@ -1271,13 +1291,17 @@ export function createNusmStore<TState>(
     }
 
     const result = createDataRecord<unknown>();
-    for (const slice of slices) {
+    const readSlice = async (index: number): Promise<void> => {
+      if (index >= slices.length) return;
+      const slice = slices[index];
+      if (!slice) return;
       const raw = await readAdapterItem(
         resolveKey({ kind: "slice", sliceKey: slice.key }),
       );
-      if (raw == null) continue;
-      defineRecordValue(result, slice.key, raw);
-    }
+      if (raw != null) defineRecordValue(result, slice.key, raw);
+      await readSlice(index + 1);
+    };
+    await readSlice(0);
     return result;
   };
 
@@ -1415,7 +1439,11 @@ export function createNusmStore<TState>(
     writeError: unknown,
   ) => {
     let rollbackError: unknown;
-    for (const { prior, unit } of committed.reverse()) {
+    const rollback = async (index: number): Promise<void> => {
+      if (index >= committed.length) return;
+      const current = committed[committed.length - index - 1];
+      if (!current) return;
+      const { prior, unit } = current;
       try {
         if (prior == null)
           await recordAdapterWrite(
@@ -1432,7 +1460,9 @@ export function createNusmStore<TState>(
       } catch (error) {
         rollbackError = rollbackError ?? error;
       }
-    }
+      await rollback(index + 1);
+    };
+    await rollback(0);
     if (rollbackError)
       throw new AggregateError(
         [writeError, rollbackError],
@@ -1450,14 +1480,19 @@ export function createNusmStore<TState>(
     );
     const committed: CommittedWrite[] = [];
     try {
-      for (const [index, unit] of units.entries()) {
+      const writeNext = async (index: number): Promise<void> => {
+        if (index >= units.length) return;
+        const unit = units[index];
+        if (!unit) return;
         await recordAdapterWrite(
           unit.key,
           () => persistenceAdapter.setItem(unit.key, unit.value),
           unit.value,
         );
         committed.push({ prior: previous[index], unit });
-      }
+        await writeNext(index + 1);
+      };
+      await writeNext(0);
     } catch (writeError) {
       await rollbackSliceWrites(persistenceAdapter, committed, writeError);
     }
@@ -1737,12 +1772,18 @@ export function createNusmStore<TState>(
   void hydrate().then(async () => {
     if (lifecycle.disposed) return;
     if (pendingAdapterEvents.length > 0) {
-      for (const pending of pendingAdapterEvents.splice(0)) {
+      const pending = pendingAdapterEvents.splice(0);
+      const enqueuePending = async (index: number): Promise<void> => {
+        if (index >= pending.length) return;
+        const current = pending[index];
+        if (!current) return;
         await syncCoordinator?.enqueueAdapterEvent(
-          pending.event,
-          pending.generation,
+          current.event,
+          current.generation,
         );
-      }
+        await enqueuePending(index + 1);
+      };
+      await enqueuePending(0);
     }
   });
 

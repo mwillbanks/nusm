@@ -1,7 +1,7 @@
 /// <reference types="react" />
 
 import { deepEqual, shallowEqual } from "fast-equals";
-import { useRef, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import type { NusmStore } from "../types.js";
 
@@ -40,11 +40,13 @@ export function useStore<TState, TSelected = NoInfer<TState>>(
     getSnapshot,
   );
   const selected = selector(snapshot as NoInfer<TState>);
-  const selectedRef = useRef<TSelected>(selected);
+  const [selectedState, setSelectedState] = useState(selected);
 
-  if (!equal(selectedRef.current, selected)) {
-    selectedRef.current = selected;
-  }
+  useEffect(() => {
+    setSelectedState((previous) =>
+      equal(previous, selected) ? previous : selected,
+    );
+  }, [equal, selected]);
 
-  return selectedRef.current;
+  return selectedState;
 }

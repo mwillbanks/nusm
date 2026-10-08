@@ -32,11 +32,12 @@ describe("useStore", () => {
         equal: true,
       });
       const prev = React.useRef(selected);
-
-      if (prev.current !== selected) {
-        changed += 1;
-        prev.current = selected;
-      }
+      React.useEffect(() => {
+        if (prev.current !== selected) {
+          changed += 1;
+          prev.current = selected;
+        }
+      }, [selected]);
 
       return React.createElement("span", null, String(selected.nested.value));
     }

@@ -42,14 +42,3 @@ export class FakeBroadcastChannel {
     }
   }
 }
-
-export const installFakeBroadcastChannel = () => {
-  const target = window as unknown as { BroadcastChannel?: unknown };
-  const original = target.BroadcastChannel;
-  target.BroadcastChannel = FakeBroadcastChannel;
-  return () => {
-    if (original === undefined) delete target.BroadcastChannel;
-    else target.BroadcastChannel = original;
-    FakeBroadcastChannel.reset();
-  };
-};
