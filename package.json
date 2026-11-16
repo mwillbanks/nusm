@@ -142,7 +142,7 @@
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "test:workspace": "bun test",
-    "typecheck": "bun check -p tsconfig.build.json && bun check scripts/build.ts scripts/check-packed-consumer.ts"
+    "typecheck": "bun check -p tsconfig.build.json && bun check --types bun scripts"
   },
   "type": "module",
   "types": "dist/index.d.ts",
