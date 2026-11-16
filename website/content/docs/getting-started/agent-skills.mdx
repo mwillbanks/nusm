@@ -34,8 +34,9 @@ upgrade to confirm they use the installed version.
 
 ## Check a custom adapter
 
-Export a test adapter from a module in your project. Run the script with Bun
-and pass the module path. Use test storage.
+Export the test adapter as the module's default value. A named export alone
+does not work. Run the script with Bun and pass the module path. Use test
+storage.
 
 ```sh
 bun node_modules/nusm/skills/nusm/scripts/check-adapter.ts ./test-adapter.ts

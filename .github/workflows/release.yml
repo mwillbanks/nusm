@@ -37,7 +37,7 @@ jobs:
 
   stamp:
     needs: release-please
-    if: needs.release-please.outputs.prs_created == 'true'
+    if: github.event_name == 'push' && (needs.release-please.outputs.prs_created == 'true' || github.run_attempt > 1)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -55,8 +55,22 @@ jobs:
       - name: Stamp authored notes and dispatch CI
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_PR_CREATED: ${{ needs.release-please.outputs.prs_created }}
           RELEASE_PRS: ${{ needs.release-please.outputs.prs }}
-        run: bun scripts/release/dispatch-release-ci.ts
+        run: |
+          set -euo pipefail
+          if [[ "$RELEASE_PR_CREATED" != "true" ]]; then
+            branch=release-please--branches--main--components--nusm
+            RELEASE_PRS=$(gh api --method GET "repos/$GITHUB_REPOSITORY/pulls" \
+              -f state=open -f base=main -f head="$GITHUB_REPOSITORY_OWNER:$branch" \
+              --jq '[.[] | select(any(.labels[]; .name == "autorelease: pending")) | {number}]')
+            if [[ "$RELEASE_PRS" == "[]" ]]; then
+              echo "No pending nusm release PR to stamp."
+              exit 0
+            fi
+          fi
+          export RELEASE_PRS
+          bun scripts/release/dispatch-release-ci.ts
 
   publish:
     needs: release-please
@@ -75,8 +89,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "$GITHUB_REF" = "refs/heads/main"
           [[ "$RELEASE_TAG" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            test "$GITHUB_REF" = "refs/tags/$RELEASE_TAG"
+          else
+            test "$GITHUB_REF" = "refs/heads/main"
+          fi
           gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" |
             jq -e --arg tag "$RELEASE_TAG" '.tag_name == $tag and .draft == false and .prerelease == false' >/dev/null
 
@@ -92,6 +110,7 @@ jobs:
           set -euo pipefail
           commit=$(git rev-parse HEAD)
           test "$commit" = "$(git rev-list -1 "refs/tags/$RELEASE_TAG")"
+          test "$commit" = "$GITHUB_SHA"
           git merge-base --is-ancestor "$commit" refs/remotes/origin/main
           gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" |
             jq -e --arg commit "$commit" '.target_commitish == $commit' >/dev/null

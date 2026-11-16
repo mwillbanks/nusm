@@ -92,10 +92,18 @@ test.each(["entire", "slices"] as const)(
     const reading = Promise.withResolvers<void>();
     const resume = Promise.withResolvers<unknown>();
     const drained = Promise.withResolvers<void>();
-    const { adapter, emit, key, nusm } = createFixture(strategy, () => {
-      drained.resolve();
-      return false;
-    });
+    const validatedCandidates: State[] = [];
+    const { adapter, emit, key, nusm } = createFixture(
+      strategy,
+      (candidate) => {
+        validatedCandidates.push(candidate);
+        if (candidate.value === 0) {
+          drained.resolve();
+          return false;
+        }
+        return true;
+      },
+    );
 
     try {
       await nusm.ready;
@@ -109,6 +117,7 @@ test.each(["entire", "slices"] as const)(
       resume.resolve(strategy === "entire" ? { value: 6 } : 6);
       emit({ type: "clear" });
       await drained.promise;
+      expect(validatedCandidates).toEqual([{ value: 0 }]);
       expect(nusm.state).toEqual({ value: 7 });
     } finally {
       resume.resolve(null);

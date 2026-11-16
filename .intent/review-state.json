@@ -363,14 +363,18 @@
       "evidence": ["scripts/build.ts", "skills/nusm/SKILL.md"]
     },
     "source:scripts/check-packed-consumer.ts": {
-      "fingerprint": "4839f2b1b40bcc9335462a155ac77e23c2f9fbe69a04b52287a590e42a515b1b",
+      "fingerprint": "1efc5556a8c5ed988e737db6b8ca38cfe4e8c1bc25d93b9b6a125b6243b34442",
       "snapshot": {
-        "scripts/check-packed-consumer.ts": "a2c7edc8f50fb99e807a4fa8d45e933b71e00a456e378183ed9019b6f41db5a3"
+        "scripts/check-packed-consumer.ts": "35aee49aa060cc42c7ce142de715f059682b0376d2b1aa239a531f5d77b88272"
       },
-      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
-      "outcome": "updated",
-      "reason": "Added browser execution of both packaged starter templates to verify storage and synchronization behavior.",
-      "evidence": ["scripts/check-packed-consumer.ts", "docs/AGENT-SKILL.md"]
+      "head": "b4327d69f16868fae41a617ad5713c513d0c4c1e",
+      "outcome": "no-change",
+      "reason": "The smoke test derives the npm archive name from package metadata. Both input modes passed on Node 20 with npm 10.",
+      "evidence": [
+        "scripts/check-packed-consumer.ts",
+        "package.json",
+        "skills/nusm/SKILL.md"
+      ]
     },
     "source:scripts/skills/check-vale.ts": {
       "fingerprint": "ff3ae8c466bc17cfecc85993d0e4ad4fdc2440a4aac332bacd0d7a4117e4302e",
@@ -472,16 +476,17 @@
       "evidence": ["website/bun.lock", "skills/_artifacts/domain_map.yaml"]
     },
     "source:website/content/docs/getting-started/agent-skills.mdx": {
-      "fingerprint": "d75c7451e131bae10dd0af016ce4d822444b00860c0425bc60f82fee89e88a4b",
+      "fingerprint": "245cc435da121671ac0a6d440227e6e8684e7f1ad9a299b9638b1548306566f0",
       "snapshot": {
-        "website/content/docs/getting-started/agent-skills.mdx": "3740ad2a53bb21110ea09c2fc8dfd5a569f69ecbeb1bf5c546c2209b2342caa1"
+        "website/content/docs/getting-started/agent-skills.mdx": "81b952fa75a5020769d21b3af4a31a59ef4b295cb065b77fd6eeef10fb553494"
       },
-      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
-      "outcome": "updated",
-      "reason": "Documented how to load and maintain the package-owned skill.",
+      "head": "b4327d69f16868fae41a617ad5713c513d0c4c1e",
+      "outcome": "no-change",
+      "reason": "The guide clarifies the test adapter default export. The skill and adapter script already specify this contract.",
       "evidence": [
         "website/content/docs/getting-started/agent-skills.mdx",
-        "skills/nusm/SKILL.md"
+        "skills/nusm/SKILL.md",
+        "skills/nusm/scripts/check-adapter.ts"
       ]
     },
     "source:website/content/docs/getting-started/meta.json": {
@@ -615,13 +620,13 @@
       ]
     },
     "source:tests/nusm-adapter-ordering.test.ts": {
-      "fingerprint": "0c20bf2b54a42fb05c6ad70c9b3d4cd1fb0eec40f630acf7f29f245a44fb3faa",
+      "fingerprint": "5c30fa6b6119b6869ceb0a4a776865b67b75c93b1a7c6d2338ce2623ec626fc7",
       "snapshot": {
-        "tests/nusm-adapter-ordering.test.ts": "cb57c1dc88375da08888227a65106db3dfba6c9e6e386af6e0230ef2da330a6f"
+        "tests/nusm-adapter-ordering.test.ts": "09bdb023c71c628e05837739a0c9ecccfd43b1495c79e71273fb86b7a7039d1e"
       },
-      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "head": "b4327d69f16868fae41a617ad5713c513d0c4c1e",
       "outcome": "no-change",
-      "reason": "The tests verify adapter ordering or persistence. Existing persistence guidance still applies.",
+      "reason": "The test uses a clear event to confirm that validation skips a superseded adapter read. Existing persistence guidance applies.",
       "evidence": [
         "tests/nusm-adapter-ordering.test.ts",
         "skills/nusm/references/persistence.md"

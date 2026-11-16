@@ -137,19 +137,22 @@ try {
     .slice(2)
     .filter((argument) => argument !== "--");
   if (extra.length) throw new Error("Usage: pack:check [tarball]");
-  if (!input) run(root, [bun, "run", "build"]);
+  if (!input) {
+    run(root, [bun, "run", "build"]);
+    run(root, [
+      "npm",
+      "pack",
+      "--ignore-scripts",
+      "--pack-destination",
+      directory,
+    ]);
+  }
   const archive = input
     ? resolve(input)
-    : join(
-        directory,
-        run(root, [
-          "npm",
-          "pack",
-          "--ignore-scripts",
-          "--pack-destination",
-          directory,
-        ]),
-      );
+    : join(directory, `${metadata.name}-${metadata.version}.tgz`);
+  if (!existsSync(archive)) {
+    throw new Error(`Package archive not found at ${archive}`);
+  }
 
   const core = join(directory, "core");
   await install(core, archive);

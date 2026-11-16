@@ -18,6 +18,8 @@ the proposed version, and passing CI on that commit before you merge.
 If the stamper finds changed authored content, synchronize the release PR with
 the latest `main` and rerun the release workflow. If CI reports a different
 commit, check the current release PR head and qualify that head before merging.
+Rerun the failed Release workflow to resume stamping or dispatch CI. The rerun
+can find an existing pending release PR if Release Please makes no update.
 A correctly stamped rerun leaves the changelog unchanged.
 
 Merge the PR to create the bare version tag and GitHub release. The docs site
@@ -27,10 +29,16 @@ attaches the authored GitHub release notes, and publishes the same tarball.
 
 ## Recover publication
 
-Open the Release workflow on `main` and dispatch it with the bare tag of an
-existing final GitHub release. For example, enter `1.2.1` for the 1.2.1 release.
-The retry verifies the release and the artifact. If npm already has that version,
-the retry succeeds only when the published integrity matches the local tarball.
+Dispatch the Release workflow from the tag of an existing final GitHub release.
+Use the same bare tag for the workflow ref and `release_tag` input.
+
+```sh
+gh workflow run release.yml --ref 1.2.1 -f release_tag=1.2.1
+```
+
+The retry verifies that the event commit matches the tagged source for npm
+provenance. If npm already has that version, the retry compares the published
+integrity with the local tarball.
 
 ## Configure GitHub and npm
 
@@ -39,5 +47,6 @@ Review and approve any blocked PR workflow runs in GitHub. The release workflow
 also dispatches the CI workflow after it stamps the current release PR.
 
 Configure the `nusm` trusted publisher on npm for repository
-`mwillbanks/nusm` and workflow `release.yml`. Use a GitHub-hosted runner so npm
-can verify the workflow identity and add provenance.
+`mwillbanks/nusm` and workflow `release.yml`. Enable direct publication with
+`npm publish` for this trusted publisher. Use a GitHub-hosted runner so npm can
+verify the workflow identity and add provenance.
