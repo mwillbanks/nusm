@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "separate-pull-requests": true,
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "component": "nusm",
+      "include-component-in-tag": false,
+      "include-v-in-tag": false,
+      "skip-changelog": true,
+      "pull-request-title-pattern": "chore: release nusm ${version}",
+      "pull-request-header": "Release candidate",
+      "pull-request-footer": "Review the stamped CHANGELOG.md and wait for CI on the final commit before merging."
+    }
+  }
+}

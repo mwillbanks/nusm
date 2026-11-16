@@ -9,12 +9,7 @@ export interface NusmSyncRevision {
 }
 
 export type NusmSyncEventKind =
-  | "request"
-  | "snapshot"
-  | "update"
-  | "ack"
-  | "ready"
-  | "adapter";
+  "request" | "snapshot" | "update" | "ack" | "ready" | "adapter";
 
 export type NusmSyncHydrationPhase = "hydrating" | "ready";
 
@@ -56,23 +51,17 @@ export interface NusmSyncSourceContext {
 }
 
 export type NusmSyncValidationResult<TState = unknown> =
-  | boolean
-  | { ok: boolean; value?: TState };
+  boolean | { ok: boolean; value?: TState };
 
 /** Validates or transforms a candidate before a remote event reaches memory. */
 export type NusmSyncValidator<TState = unknown> = (
   candidate: unknown,
   context: NusmSyncContext,
 ) =>
-  | NusmSyncValidationResult<TState>
-  | Promise<NusmSyncValidationResult<TState>>;
+  NusmSyncValidationResult<TState> | Promise<NusmSyncValidationResult<TState>>;
 
 export type NusmSyncStatus =
-  | "disabled"
-  | "pending"
-  | "active"
-  | "unavailable"
-  | "disposed";
+  "disabled" | "pending" | "active" | "unavailable" | "disposed";
 
 export type NusmSyncSourceListener<TState = unknown> = (
   event: NusmSyncEvent<TState>,
@@ -90,8 +79,7 @@ export interface NusmSyncSource<TState = unknown> {
 }
 
 export type NusmSyncSourceInput<TState = unknown> =
-  | NusmSyncSource<TState>
-  | readonly NusmSyncSource<TState>[];
+  NusmSyncSource<TState> | readonly NusmSyncSource<TState>[];
 
 export interface NusmSyncOptions<TState = unknown> {
   source?: NusmSyncSourceInput<TState>;

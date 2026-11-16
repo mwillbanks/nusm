@@ -21,7 +21,7 @@ const validateExampleCandidate = (
   typeof (candidate as { value?: unknown }).value === "number";
 
 const createExampleSyncSource = (key = 17) =>
-  createBroadcastChannelSyncSource({
+  createBroadcastChannelSyncSource<{ value: number }>({
     key: new Uint8Array(Array.from({ length: 32 }, (_, index) => index + key)),
     namespace: "nusm-example-tests",
   });
@@ -33,7 +33,7 @@ const verifyAdapter = async (
   const storeId = `example-${name}`;
   const firstSync = createExampleSyncSource();
   const secondSync = createExampleSyncSource();
-  const first = createNusmStore(
+  const first = createNusmStore<{ value: number }>(
     { value: 0 },
     {
       adapter: createAdapter?.(),
@@ -41,7 +41,7 @@ const verifyAdapter = async (
       sync: { source: firstSync, validator: validateExampleCandidate },
     },
   );
-  const second = createNusmStore(
+  const second = createNusmStore<{ value: number }>(
     { value: 0 },
     {
       adapter: createAdapter?.(),

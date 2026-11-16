@@ -11,7 +11,7 @@ import { defineConfig } from "vite";
 const docsRoot = resolve(import.meta.dirname, "content/docs");
 
 function isMarkdownFile(entry: Dirent): boolean {
-  return entry.isFile() && entry.name.endsWith(".mdx");
+  return entry.isFile() && /\.mdx?$/.test(entry.name);
 }
 
 function normalizePublicSlug(slug: string): string {
@@ -33,7 +33,7 @@ function getMarkdownPrerenderPage(
   if (!isMarkdownFile(entry)) return [];
 
   const relativePath = relative(docsRoot, absolutePath).split(sep).join("/");
-  const slug = relativePath.slice(0, -".mdx".length);
+  const slug = relativePath.replace(/\.mdx?$/, "");
   return [{ path: toMarkdownPagePath(normalizePublicSlug(slug)) }];
 }
 

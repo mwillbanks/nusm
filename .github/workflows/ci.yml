@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact stamped release PR commit to validate
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify stamped release head
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/release-please--branches--main--components--nusm ]]
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26.13.1
+          package-manager-cache: false
+
+      - name: Install library and example dependencies
+        env:
+          HUSKY: "0"
+        run: |
+          bun ci
+          bun ci --cwd example
+
+      - name: Validate stamped notes
+        if: github.event_name == 'workflow_dispatch'
+        run: bun scripts/release/render-release-notes.ts
+
+      - run: bun run format:check
+      - run: bun run typecheck
+      - run: bun run example:typecheck
+      - run: bun run lint
+
+      - name: Test library and example
+        run: |
+          bun test --coverage tests
+          bun run example:test
+
+      - run: bun run example:build
+      - run: bun run build
+      - run: bun run intent:check --github-summary
+
+      - name: Validate skill prose and Vale rules
+        env:
+          VALE_VERSION: 3.27.0
+          VALE_SHA256: c80d62f6bce87b81843ac5b512a26e63213927b957adba0a64fc594570da2000
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/vale.tar.gz"
+          curl --fail --silent --show-error --location \
+            "https://github.com/vale-cli/vale/releases/download/v$VALE_VERSION/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
+            --output "$archive"
+          printf '%s  %s\n' "$VALE_SHA256" "$archive" | sha256sum -c -
+          tar -xzf "$archive" -C "$RUNNER_TEMP" vale
+          export PATH="$RUNNER_TEMP:$PATH"
+          vale --no-global sync
+          bun run skill:lint
+          bun scripts/skills/check-vale.ts
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20.x"
+          package-manager-cache: false
+
+      - name: Verify package consumers
+        run: bun run pack:check
+
+  release-docs:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Verify stamped release head
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/release-please--branches--main--components--nusm ]]
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26.13.1
+          package-manager-cache: false
+      - name: Verify release documentation
+        env:
+          VITE_BASE_PATH: /nusm/
+        run: |
+          bun ci --cwd website
+          bun run --cwd website typecheck
+          bun run --cwd website test
+          bun run --cwd website build
+          bun run --cwd website test:build

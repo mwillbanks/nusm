@@ -31,6 +31,102 @@ beforeEach(() => {
 afterEach(() => configureNusm({}));
 
 describe.serial("authenticated BroadcastChannel synchronization", () => {
+  test("rejects malformed key input and an empty store identifier", async () => {
+    expect(() =>
+      createBroadcastChannelSyncSource({
+        key: null as unknown as CryptoKey,
+        namespace: "invalid-start",
+      }),
+    ).toThrow("CryptoKey or Uint8Array");
+    const wrongHash = {
+      algorithm: { hash: "SHA-1", name: "HMAC" },
+      extractable: false,
+      type: "secret",
+      usages: ["sign", "verify"],
+    };
+    expect(() =>
+      createBroadcastChannelSyncSource({
+        key: wrongHash as unknown as CryptoKey,
+        namespace: "invalid-start",
+      }),
+    ).toThrow("HMAC-SHA-256");
+
+    const source = createBroadcastChannelSyncSource({
+      key: key(),
+      namespace: "invalid-start",
+    });
+    await expect(
+      source.start(() => undefined, { storeId: "" }),
+    ).rejects.toThrow("A storeId is required");
+  });
+
+  test("reports a signed envelope that exceeds the wire limit", async () => {
+    const storeId = "wire-limit";
+    const errors: unknown[] = [];
+    const source = createBroadcastChannelSyncSource({
+      key: key(),
+      limits: { maxEnvelopeBytes: 32 },
+      namespace: storeId,
+    });
+    try {
+      await source.start(() => undefined, {
+        onError: (error) => errors.push(error),
+        storeId,
+      });
+      await source.publish({
+        eventId: "request",
+        kind: "request",
+        sourceId: "peer",
+        storeId,
+      });
+      expect(errors).toEqual([
+        new Error("Synchronization envelope exceeds its size limit."),
+      ]);
+      expect(TestBroadcastChannel.messages).toHaveLength(0);
+    } finally {
+      await source.dispose?.();
+    }
+  });
+
+  test("uses a fallback sender and delivers to peers after a listener throws", async () => {
+    const storeId = "listener-failure";
+    const receiver = createBroadcastChannelSyncSource({
+      key: key(),
+      namespace: storeId,
+    });
+    const sender = createBroadcastChannelSyncSource({
+      key: key(),
+      namespace: storeId,
+    });
+    const observed = Promise.withResolvers<NusmSyncEvent>();
+    let listenerCalls = 0;
+    try {
+      await receiver.start(
+        () => {
+          listenerCalls += 1;
+          throw new Error("listener failed");
+        },
+        { storeId },
+      );
+      await receiver.start(observed.resolve, { storeId });
+      await sender.publish({
+        eventId: "request",
+        kind: "request",
+        requestId: "request",
+        revision: { counter: 1, epoch: "1", senderId: "revision-peer" },
+        sourceId: "",
+        storeId,
+      });
+      expect(await observed.promise).toMatchObject({
+        requestId: "request",
+        revision: { counter: 1, epoch: "1", senderId: "revision-peer" },
+        sourceId: sender.sourceId,
+      });
+      expect(listenerCalls).toBe(1);
+    } finally {
+      await Promise.all([receiver.dispose?.(), sender.dispose?.()]);
+    }
+  });
   test("applies one BroadcastChannel update and matching adapter observation once", async () => {
     const storeId = "broadcast-adapter-once";
     const sharedKey = key();

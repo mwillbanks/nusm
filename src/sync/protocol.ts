@@ -35,7 +35,7 @@ export const DEFAULT_BROADCAST_LIMITS: BroadcastProtocolLimits = {
 /** Revision counters intentionally stay within a signed 31-bit range. */
 export const MAX_SYNC_REVISION_COUNTER = 0x7fffffff;
 export const SYNC_REVISION_ROLLOVER_WINDOW = 4096;
-export const MAX_SYNC_REVISION_EPOCH = Number.MAX_SAFE_INTEGER;
+export const MAX_SYNC_REVISION_EPOCH: number = Number.MAX_SAFE_INTEGER;
 
 export type BroadcastWireEnvelope = {
   version: typeof BROADCAST_PROTOCOL_VERSION;
@@ -234,13 +234,10 @@ const parseState = (
 };
 
 const asRevision = (
-  counter: number | null,
+  counter: number,
   senderId: string,
   epoch: string,
-): NusmSyncRevision | undefined =>
-  counter === null
-    ? undefined
-    : { counter, senderId, ...(epoch ? { epoch } : {}) };
+): NusmSyncRevision => ({ counter, senderId, ...(epoch ? { epoch } : {}) });
 
 const optionalEnvelopeFields = <TState>(event: NusmSyncEvent<TState>) => {
   const fields: Partial<BroadcastWireEnvelope> = {};

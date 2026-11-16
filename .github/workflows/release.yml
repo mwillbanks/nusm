@@ -1,0 +1,151 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing final nusm release tag to publish or recover
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: nusm-release
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      prs_created: ${{ steps.release.outputs.prs_created }}
+      prs: ${{ steps.release.outputs.prs }}
+    steps:
+      - uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          token: ${{ github.token }}
+
+  stamp:
+    needs: release-please
+    if: github.event_name == 'push' && (needs.release-please.outputs.prs_created == 'true' || github.run_attempt > 1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - name: Stamp authored notes and dispatch CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_PR_CREATED: ${{ needs.release-please.outputs.prs_created }}
+          RELEASE_PRS: ${{ needs.release-please.outputs.prs }}
+        run: |
+          set -euo pipefail
+          if [[ "$RELEASE_PR_CREATED" != "true" ]]; then
+            branch=release-please--branches--main--components--nusm
+            RELEASE_PRS=$(gh api --method GET "repos/$GITHUB_REPOSITORY/pulls" \
+              -f state=open -f base=main -f head="$GITHUB_REPOSITORY_OWNER:$branch" \
+              --jq '[.[] | select(any(.labels[]; .name == "autorelease: pending")) | {number}]')
+            if [[ "$RELEASE_PRS" == "[]" ]]; then
+              echo "No pending nusm release PR to stamp."
+              exit 0
+            fi
+          fi
+          export RELEASE_PRS
+          bun scripts/release/dispatch-release-ci.ts
+
+  publish:
+    needs: release-please
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || needs.release-please.outputs.tag_name }}
+      HUSKY: "0"
+    steps:
+      - name: Verify the final GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            test "$GITHUB_REF" = "refs/tags/$RELEASE_TAG"
+          else
+            test "$GITHUB_REF" = "refs/heads/main"
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" |
+            jq -e --arg tag "$RELEASE_TAG" '.tag_name == $tag and .draft == false and .prerelease == false' >/dev/null
+
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the tagged source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          commit=$(git rev-parse HEAD)
+          test "$commit" = "$(git rev-list -1 "refs/tags/$RELEASE_TAG")"
+          test "$commit" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$commit" refs/remotes/origin/main
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" |
+            jq -e --arg commit "$commit" '.target_commitish == $commit' >/dev/null
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26.13.1
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Verify and render the authored notes
+        run: bun scripts/release/render-release-notes.ts "$RELEASE_TAG" > "$RUNNER_TEMP/release-notes.md"
+
+      - run: bun ci
+      - run: bun run build
+      - name: Pack and qualify the npm artifact
+        run: |
+          set -euo pipefail
+          npm pack --pack-destination "$RUNNER_TEMP" --ignore-scripts
+          bun run pack:check -- "$RUNNER_TEMP/nusm-$RELEASE_TAG.tgz"
+
+      - name: Check the registry for an existing publication
+        id: registry
+        run: |
+          set -euo pipefail
+          status=$(bun scripts/release/check-npm-publication.ts "$RELEASE_TAG" "$RUNNER_TEMP/nusm-$RELEASE_TAG.tgz")
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Attach the authored release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/release-notes.md"
+
+      - name: Publish the qualified artifact
+        if: steps.registry.outputs.status == 'pending'
+        run: npm publish "$RUNNER_TEMP/nusm-$RELEASE_TAG.tgz" --access public --ignore-scripts

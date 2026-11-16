@@ -39,22 +39,27 @@ const validateSessionCandidate = (candidate: unknown) =>
   typeof candidate.activeView === "string" &&
   typeof candidate.drafts === "number" &&
   typeof candidate.lastCommand === "string";
-const validateGlobalCandidate = (
-  candidate: unknown,
-  context: NusmSyncContext,
-) =>
-  ({
-    "activity-archive": (value: unknown) =>
-      isRecord(value) && Array.isArray(value.events),
-    "live-session": validateSessionCandidate,
-    preferences: (value: unknown) =>
+const storeValidators = new Map<string, (value: unknown) => boolean>([
+  [
+    "activity-archive",
+    (value) => isRecord(value) && Array.isArray(value.events),
+  ],
+  ["live-session", validateSessionCandidate],
+  [
+    "preferences",
+    (value) =>
       isRecord(value) &&
       typeof value.accent === "string" &&
       typeof value.density === "string" &&
       typeof value.shortcuts === "boolean" &&
       typeof value.theme === "string",
-    "workspace-pulse": validateWorkspaceCandidate,
-  })[context.storeId]?.(candidate) ?? false;
+  ],
+  ["workspace-pulse", validateWorkspaceCandidate],
+]);
+const validateGlobalCandidate = (
+  candidate: unknown,
+  context: NusmSyncContext,
+) => storeValidators.get(context.storeId)?.(candidate) ?? false;
 
 const shouldEnableSynchronization =
   typeof window !== "undefined" &&

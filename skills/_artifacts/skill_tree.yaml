@@ -1,0 +1,43 @@
+library:
+  name: nusm
+generated_from:
+  domain_map: skills/_artifacts/domain_map.yaml
+  skill_spec: skills/_artifacts/skill_spec.md
+distribution:
+  mode: none
+review:
+  ignore:
+    - .release-please-manifest.json
+    - CHANGELOG.md
+    - release-please-config.json
+    - .github/workflows/release.yml
+    - docs/RELEASING.md
+    - scripts/release/**
+    - tests/release/**
+    - website/content/docs/releases/**
+skills:
+  - name: nusm
+    slug: nusm
+    domain: application-state
+    path: skills/nusm/SKILL.md
+    description: Use when building or debugging a nusm store. Covers persistence, hydration, cross-tab sync, React selectors, and TanStack Devtools.
+    purpose: Choose a store lifetime and apply the nusm APIs for state, storage, sync, and inspection.
+    sources:
+      - src/index.ts
+      - src/config.ts
+      - src/nusm.ts
+      - src/types.ts
+      - src/react/index.ts
+      - src/devtools/**
+      - src/store/lifecycle.ts
+      - src/adapters/**
+      - src/sync/**
+      - website/content/docs/concepts/persistence.mdx
+      - website/content/docs/concepts/hydration.mdx
+      - website/content/docs/concepts/synchronization.mdx
+      - website/content/docs/devtools.mdx
+    requires: []
+    references:
+      - references/persistence.md
+      - references/react-devtools.md
+      - references/synchronization.md

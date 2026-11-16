@@ -1,0 +1,13 @@
+[Aa]dapter
+[Bb]rowser
+[Dd]evtools
+[Hh]ydrat(e|ed|ion)
+[Pp]ersist(ed|ence)?
+[Ss]ync(hronization|hronized)?
+[Bb]aseline
+HMAC
+IndexedDB
+Intent
+React
+TanStack
+nusm

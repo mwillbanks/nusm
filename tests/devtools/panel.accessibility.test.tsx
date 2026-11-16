@@ -27,6 +27,45 @@ afterEach(() => {
 });
 
 describe("panel accessibility", () => {
+  test("opens the editor when focus starts on a non-HTML element", () => {
+    const target = relay();
+    globalThis.__TANSTACK_EVENT_TARGET__ = target;
+    const view = render(
+      <>
+        <svg>
+          <a aria-label="Canvas" href="#canvas">
+            <rect height="1" width="1" />
+          </a>
+        </svg>
+        <NusmDevtoolsPanel devtoolsOpen theme="dark" />
+      </>,
+    );
+    act(() =>
+      target.dispatchEvent(
+        new CustomEvent("nusm:snapshot", {
+          detail: {
+            payload: {
+              hydration: { byKey: {}, overall: "hydrated" },
+              instanceId: "focus-instance",
+              isReady: true,
+              memory: { value: 1 },
+              storeId: "focus-store",
+            },
+          },
+        }),
+      ),
+    );
+    fireEvent.click(view.getByRole("tab", { name: "memory" }));
+    const canvas = view.getByLabelText("Canvas");
+    canvas.focus();
+    expect(canvas).toHaveFocus();
+    fireEvent.click(view.getByRole("button", { name: "Edit raw JSON" }));
+    expect(view.getByRole("button", { name: "Close editor" })).toHaveFocus();
+    fireEvent.click(view.getByRole("button", { name: "Close editor" }));
+    expect(view.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(canvas).not.toHaveFocus();
+  });
+
   test("seeds an interacting missing slice from initial state without divergence", async () => {
     type State = { mirror: string; profile: { name: string } };
     const target = relay();
@@ -117,6 +156,11 @@ describe("panel accessibility", () => {
     const overviewPanel = view.getByRole("tabpanel");
     expect(overview).toHaveAttribute("aria-controls", overviewPanel.id);
     expect(overviewPanel).toHaveAttribute("aria-labelledby", overview.id);
+
+    overview.focus();
+    expect(fireEvent.keyDown(overview, { key: "Escape" })).toBe(true);
+    expect(overview).toHaveFocus();
+    expect(overview).toHaveAttribute("aria-selected", "true");
 
     fireEvent.keyDown(overview, { key: "ArrowRight" });
     const memory = view.getByRole("tab", { name: "memory" });

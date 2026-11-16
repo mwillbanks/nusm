@@ -31,6 +31,11 @@ See the [dependency upgrade guide](docs/DEPENDENCIES.md) for upgrade review and 
 bun add nusm
 ```
 
+## Agent Skill
+
+Load `nusm#nusm` to get guidance for the version installed in your app.
+See the [Agent Skill guide](https://mwillbanks.github.io/nusm/docs/getting-started/agent-skills).
+
 ## Quick Start
 
 `adapter` and `persist` are optional. This creates an in-memory nusm store:

@@ -1,0 +1,19 @@
+library:
+  name: nusm
+domains:
+  - name: application-state
+    description: Integrate a nusm store into an application.
+skills:
+  - slug: nusm
+    domain: application-state
+    tasks:
+      - Choose per-store memory, session, or durable storage.
+      - Resolve hydration faults and preserve data across schema changes.
+      - Validate updates from authorized browser tabs.
+      - Use React selectors and inspect the correct Devtools instance.
+    failure_modes:
+      - A storage read failure is treated as a missing key.
+      - A slice update changes fields outside that slice.
+      - Tabs use different keys or bypass validation.
+      - A production inspector exposes live or saved state.
+gaps: []

@@ -1,5 +1,17 @@
 # Changelog
 
+## NEXT_RELEASE
+
+### Features
+
+- Use the bundled nusm Agent Skill to set up persistence, hydration, browser synchronization, React selectors, and Devtools.
+- Find release notes by version in the documentation site.
+
+### Compatibility
+
+- Support TanStack Devtools 0.16 and update the library, example, and documentation dependencies.
+- Build and check the release with Bun. The npm package keeps its ESM entry points and TypeScript declarations.
+
 # [1.2.0](https://github.com/mwillbanks/nusm/compare/1.1.1...1.2.0) (2026-10-08)
 
 ### Bug Fixes
