@@ -4,12 +4,27 @@ linker = "hoisted"
 [install.security]
 scanner = "@bun-security-scanner/osv"
 
+[fmt]
+printWidth = 80
+tabWidth = 2
+sortPackageJson = false
+ignorePatterns = [
+  "dist/",
+  ".output/",
+  ".source/",
+  "coverage/",
+  "website/src/routeTree.gen.ts",
+  "bun.lock",
+  "/CHANGELOG.md",
+]
+
 [test]
 coverage = true
 coveragePathIgnorePatterns = [
   "**/dist/**",
   "**/generated/**",
   "example/**",
+  "scripts/**",
   "tests/**",
   "testSetup.ts",
   "website/**",

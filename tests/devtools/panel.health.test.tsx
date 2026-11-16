@@ -36,6 +36,41 @@ const snapshot = (
 afterEach(cleanup);
 
 describe("panel health", () => {
+  test("shows pending writes, the last write time, and empty data views", () => {
+    const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
+    const target = relay();
+    globalThis.__TANSTACK_EVENT_TARGET__ = target;
+    try {
+      const view = render(<NusmDevtoolsPanel devtoolsOpen theme="dark" />);
+      const lastFlushAt = Date.UTC(2026, 0, 1, 12);
+      sendSnapshot(
+        target,
+        snapshot("pending-store", {
+          adapterName: "localStorage",
+          lastFlushAt,
+          pendingKeys: ["entire"],
+          synchronization: "synchronized",
+        }),
+      );
+      expect(
+        view.getAllByLabelText("Persisting changes").length,
+      ).toBeGreaterThan(0);
+      expect(
+        view.getByText(new Date(lastFlushAt).toLocaleTimeString()),
+      ).toBeInTheDocument();
+
+      fireEvent.click(view.getByRole("tab", { name: "memory" }));
+      expect(view.getByText("This location is empty")).toBeInTheDocument();
+      fireEvent.click(view.getByRole("tab", { name: "timeline" }));
+      expect(
+        view.getByText("State transitions will appear here"),
+      ).toBeInTheDocument();
+    } finally {
+      cleanup();
+      globalThis.__TANSTACK_EVENT_TARGET__ = originalTarget;
+    }
+  });
+
   test("renders exhaustive memory-only and unknown synchronization health", () => {
     const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
     const target = relay();

@@ -1,0 +1,706 @@
+{
+  "schemaVersion": 1,
+  "baseline": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+  "items": {
+    "skill:skills/nusm/SKILL.md": {
+      "fingerprint": "bbba712171c63f3c55d8dd9f5057f97b9d0914f51575544ebf6826591eeea003",
+      "snapshot": {
+        "skills/nusm/SKILL.md": "da502c307ec2316c172f56043d81e79452d1d9c5ef2f85fb58e3193d80d03a24",
+        "skills/nusm/assets/persisted-store.tsx": "8d1e20b6f1c525108a6ec4f3260d761ea8dbdd285660b3f8449b5c2ddba8861e",
+        "skills/nusm/assets/synchronized-store.ts": "fb6d654cea3c61108e8cbb25966e722ce7d5df9517a1a8af323638fe15177070",
+        "skills/nusm/references/persistence.md": "530bd36c54ba326fbc11e05efcfe4eca55e126849f8e8d3371b7216b6a55c8bf",
+        "skills/nusm/references/react-devtools.md": "25c2baa68febc7a476a885d2f157db16dec9d79732ffaa4fc53c1465d318f6d2",
+        "skills/nusm/references/synchronization.md": "bffd643bbd2af1c7869d60587f289cc5be8025313de894f6ee5e70609b9bd089",
+        "skills/nusm/scripts/check-adapter.ts": "0052ae2a8340f4c00cc13d14fe4e42b149104b9388f667c03010fcc19b51b933",
+        "src/adapters/indexDbAdapter.ts": "1a601f13d5b5bc9cb5bd0182b89768c03dae6364467f695b00b60d57a6860014",
+        "src/adapters/localStorageAdapter.ts": "b5e940219036fce147bb2068fa3a13ba84e26364ae3fb908aed20db66c7b9e32",
+        "src/adapters/sessionStorageAdapter.ts": "5eb48d5dab00848aa0e346d017de2c9880f20eb4f739b504b940123d0f4f12a0",
+        "src/adapters/storageAdapter.ts": "438dc53feec1142e96cfb7b1bc422a6c251d51c2f132d496232344a4c71e3c97",
+        "src/config.ts": "20e1d7dc001e69c482d9534735b3505c086c282b2d834603c3518f592fa21cbd",
+        "src/devtools/client.ts": "1d316f9a8bf9d661332f3dd8daa0edd536e008dad745895b4f7c845d500c7e5e",
+        "src/devtools/core.tsx": "fbb396dd5e4a95f2ac8907f2ba6122941b62c6157d2e1fbce84d776bec29d926",
+        "src/devtools/flatten.ts": "51976af81ac41496ecf463dc013d8046ca08f71d693e07007fe5b0c1566c1ea9",
+        "src/devtools/index.ts": "76dd7f26d021b61a100952da1fcc5011ab4c097d42c7e78ba9b1ee56488e758f",
+        "src/devtools/nusm-logo.tsx": "74878f260cef3f4ec8668ba278523e3a45314e838101f0db29da37a029a77418",
+        "src/devtools/panel-commands.ts": "40d9450599a6ee1f3c5d846dea5c48568bfe2d6bd94ab22c22bf6d2422f164b3",
+        "src/devtools/panel-controller.ts": "16fee8e7545afa3829f4769f850eb3a6854d38f44c718754ded5a1757984f133",
+        "src/devtools/panel-editor.tsx": "6246106518c3cd66a0ff3ffd649e985f76b1380ca2c7a59140c72e2215cfcdb7",
+        "src/devtools/panel-events.ts": "da281d2a977a4db8c18fd02bba625f0323a34ad66f06b165d8efa29d31075905",
+        "src/devtools/panel-focus.ts": "dc953438332bccfc681c35b1180b8267426de6a421e5ad1d1aebeadfaff51094",
+        "src/devtools/panel-model.ts": "c1f2f961369499cead67ed713ea681244a6a7c9e3722dfc6a0e45df45afc0195",
+        "src/devtools/panel-navigation.tsx": "4c020337d7b7ed96dbe6e2fb2d6db443d38e38bd55a2b32d3fd405d2a487b484",
+        "src/devtools/panel-state.ts": "3cf92ef222b0f7c53193b0c57d02d4e03404ca25a2678dc0ada174e55052fe2c",
+        "src/devtools/panel-view.tsx": "158106df4dea49763088b535dc254e865a44d7782d08673523de292c1757b0c1",
+        "src/devtools/panel.tsx": "b5880392d737c45787f88f466d2af8d117bc41fcdf3dce0a4b1510fb75512702",
+        "src/devtools/path.ts": "f2b1a77e729e652a9a9dee3df8338b9c1205272d520339d90929e3db76152414",
+        "src/devtools/plugin.tsx": "56019b331b093bc5b4195ce43f5a2a4fd41a5434267ccfacc9a49d7884e46273",
+        "src/devtools/projection.ts": "8ab5cbab3b28b52f7075e2f024f76126bf5df91d32ae64b052e0a15f97d9e314",
+        "src/devtools/protocol.ts": "8f60297819cb3cf7ecd0b98cf4c709fe0084592cb3b655db15d9e3233f9cfbbb",
+        "src/devtools/serialize.ts": "1b6032e793de258b01e715d68c062dc66773d070edcf79b509c78656832f620a",
+        "src/devtools/types.ts": "e7292a9f89ec692ba61c35a2afa0b843aaf89a09eb9a2ac72cef0b7adb650841",
+        "src/index.ts": "4c1e0044de065b4bd4a8f03a0a40e50d2c5b37d198a5eb32ecc13b586786824d",
+        "src/nusm.ts": "aaa4b503786ecc4692d21c721229683f8b8cf82142240f032810e441be822728",
+        "src/react/index.ts": "d9448d3fea94fca3c104d92d410a941cea3ad7b3f768bba0668121fdce3de371",
+        "src/store/lifecycle.ts": "bbe911856259132967e479bb655e50a5327bbf563f6992d372013e9a362f86e6",
+        "src/sync/broadcastChannel.ts": "6c5226094c44247739646405956d79ef62d057f23142cbb222b383558e898deb",
+        "src/sync/coordinator.ts": "0592832c276a30ea9491437503d8371e5f3e2dc8d2f099a236b98a1d5926b718",
+        "src/sync/index.ts": "86d7d438aefe7d150bf71d1916a988f6ff1c2bab8fb069b4820ed3f8162cd8db",
+        "src/sync/protocol.ts": "3ab76322111a98e2456d49a52c871dd786599aef6150fb0f44f7f1702e002932",
+        "src/sync/types.ts": "cde5138ba58825c561a6afcacc3e697de25cdf11764ec89a36747c6c2a717472",
+        "src/types.ts": "7b15bbfe59ca9a567d0fb6fddf690edc5717775d5cd6f98e8828a3b928c1d872",
+        "website/content/docs/concepts/hydration.mdx": "e2eab062e95ca79894a83aa4a8db7bbfba16e6ba47547f21b561bc0a29706e0f",
+        "website/content/docs/concepts/persistence.mdx": "800325f9db2b138d1bd515c4598d4f8fe5bc9fe160539a99c4f7e1bee7c4c8c8",
+        "website/content/docs/concepts/synchronization.mdx": "9dec206392176b5a4824c690472bfec017b2595aa4b0a303ac1548d029bc00ce",
+        "website/content/docs/devtools.mdx": "53f7f0e55cdae71928e01c0f84431cf136bf1b6ab71a445699bd189e949bef84"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Corrected the subscribed adapter starter and documented validator responsibilities and transport scope. The browser check and revised behavior evaluations passed.",
+      "evidence": [
+        "skills/nusm/SKILL.md",
+        "scripts/skills/eval-results.md",
+        "src/nusm.ts",
+        "src/sync/coordinator.ts",
+        "src/sync/protocol.ts",
+        "skills/nusm/assets/persisted-store.tsx",
+        "skills/nusm/references/persistence.md",
+        "skills/nusm/references/synchronization.md"
+      ]
+    },
+    "planning:skills/_artifacts": {
+      "fingerprint": "13d21a886468e657a63d6d2be74b55fc8a2d36302ff9d0de83e910b1f8f8741d",
+      "snapshot": {
+        "skills/_artifacts/domain_map.yaml": "25f50cce3ac695418f1b258cb6cace4554beaedad1284bfbf49bdaa4fae20873",
+        "skills/_artifacts/skill_spec.md": "347972b002271527c03f584dfc846a2038d563cd848c5339285788b513ba55d2",
+        "skills/_artifacts/skill_tree.yaml": "94cefa309b5dabce98e6ea08cb0befcf1fd4c8b071ceddce87906db4472c4603",
+        "skills/nusm/SKILL.md": "da502c307ec2316c172f56043d81e79452d1d9c5ef2f85fb58e3193d80d03a24",
+        "skills/nusm/assets/persisted-store.tsx": "8d1e20b6f1c525108a6ec4f3260d761ea8dbdd285660b3f8449b5c2ddba8861e",
+        "skills/nusm/assets/synchronized-store.ts": "fb6d654cea3c61108e8cbb25966e722ce7d5df9517a1a8af323638fe15177070",
+        "skills/nusm/references/persistence.md": "530bd36c54ba326fbc11e05efcfe4eca55e126849f8e8d3371b7216b6a55c8bf",
+        "skills/nusm/references/react-devtools.md": "25c2baa68febc7a476a885d2f157db16dec9d79732ffaa4fc53c1465d318f6d2",
+        "skills/nusm/references/synchronization.md": "bffd643bbd2af1c7869d60587f289cc5be8025313de894f6ee5e70609b9bd089",
+        "skills/nusm/scripts/check-adapter.ts": "0052ae2a8340f4c00cc13d14fe4e42b149104b9388f667c03010fcc19b51b933",
+        "src/adapters/indexDbAdapter.ts": "1a601f13d5b5bc9cb5bd0182b89768c03dae6364467f695b00b60d57a6860014",
+        "src/adapters/localStorageAdapter.ts": "b5e940219036fce147bb2068fa3a13ba84e26364ae3fb908aed20db66c7b9e32",
+        "src/adapters/sessionStorageAdapter.ts": "5eb48d5dab00848aa0e346d017de2c9880f20eb4f739b504b940123d0f4f12a0",
+        "src/adapters/storageAdapter.ts": "438dc53feec1142e96cfb7b1bc422a6c251d51c2f132d496232344a4c71e3c97",
+        "src/config.ts": "20e1d7dc001e69c482d9534735b3505c086c282b2d834603c3518f592fa21cbd",
+        "src/devtools/client.ts": "1d316f9a8bf9d661332f3dd8daa0edd536e008dad745895b4f7c845d500c7e5e",
+        "src/devtools/core.tsx": "fbb396dd5e4a95f2ac8907f2ba6122941b62c6157d2e1fbce84d776bec29d926",
+        "src/devtools/flatten.ts": "51976af81ac41496ecf463dc013d8046ca08f71d693e07007fe5b0c1566c1ea9",
+        "src/devtools/index.ts": "76dd7f26d021b61a100952da1fcc5011ab4c097d42c7e78ba9b1ee56488e758f",
+        "src/devtools/nusm-logo.tsx": "74878f260cef3f4ec8668ba278523e3a45314e838101f0db29da37a029a77418",
+        "src/devtools/panel-commands.ts": "40d9450599a6ee1f3c5d846dea5c48568bfe2d6bd94ab22c22bf6d2422f164b3",
+        "src/devtools/panel-controller.ts": "16fee8e7545afa3829f4769f850eb3a6854d38f44c718754ded5a1757984f133",
+        "src/devtools/panel-editor.tsx": "6246106518c3cd66a0ff3ffd649e985f76b1380ca2c7a59140c72e2215cfcdb7",
+        "src/devtools/panel-events.ts": "da281d2a977a4db8c18fd02bba625f0323a34ad66f06b165d8efa29d31075905",
+        "src/devtools/panel-focus.ts": "dc953438332bccfc681c35b1180b8267426de6a421e5ad1d1aebeadfaff51094",
+        "src/devtools/panel-model.ts": "c1f2f961369499cead67ed713ea681244a6a7c9e3722dfc6a0e45df45afc0195",
+        "src/devtools/panel-navigation.tsx": "4c020337d7b7ed96dbe6e2fb2d6db443d38e38bd55a2b32d3fd405d2a487b484",
+        "src/devtools/panel-state.ts": "3cf92ef222b0f7c53193b0c57d02d4e03404ca25a2678dc0ada174e55052fe2c",
+        "src/devtools/panel-view.tsx": "158106df4dea49763088b535dc254e865a44d7782d08673523de292c1757b0c1",
+        "src/devtools/panel.tsx": "b5880392d737c45787f88f466d2af8d117bc41fcdf3dce0a4b1510fb75512702",
+        "src/devtools/path.ts": "f2b1a77e729e652a9a9dee3df8338b9c1205272d520339d90929e3db76152414",
+        "src/devtools/plugin.tsx": "56019b331b093bc5b4195ce43f5a2a4fd41a5434267ccfacc9a49d7884e46273",
+        "src/devtools/projection.ts": "8ab5cbab3b28b52f7075e2f024f76126bf5df91d32ae64b052e0a15f97d9e314",
+        "src/devtools/protocol.ts": "8f60297819cb3cf7ecd0b98cf4c709fe0084592cb3b655db15d9e3233f9cfbbb",
+        "src/devtools/serialize.ts": "1b6032e793de258b01e715d68c062dc66773d070edcf79b509c78656832f620a",
+        "src/devtools/types.ts": "e7292a9f89ec692ba61c35a2afa0b843aaf89a09eb9a2ac72cef0b7adb650841",
+        "src/index.ts": "4c1e0044de065b4bd4a8f03a0a40e50d2c5b37d198a5eb32ecc13b586786824d",
+        "src/nusm.ts": "aaa4b503786ecc4692d21c721229683f8b8cf82142240f032810e441be822728",
+        "src/react/index.ts": "d9448d3fea94fca3c104d92d410a941cea3ad7b3f768bba0668121fdce3de371",
+        "src/store/lifecycle.ts": "bbe911856259132967e479bb655e50a5327bbf563f6992d372013e9a362f86e6",
+        "src/sync/broadcastChannel.ts": "6c5226094c44247739646405956d79ef62d057f23142cbb222b383558e898deb",
+        "src/sync/coordinator.ts": "0592832c276a30ea9491437503d8371e5f3e2dc8d2f099a236b98a1d5926b718",
+        "src/sync/index.ts": "86d7d438aefe7d150bf71d1916a988f6ff1c2bab8fb069b4820ed3f8162cd8db",
+        "src/sync/protocol.ts": "3ab76322111a98e2456d49a52c871dd786599aef6150fb0f44f7f1702e002932",
+        "src/sync/types.ts": "cde5138ba58825c561a6afcacc3e697de25cdf11764ec89a36747c6c2a717472",
+        "src/types.ts": "7b15bbfe59ca9a567d0fb6fddf690edc5717775d5cd6f98e8828a3b928c1d872",
+        "website/content/docs/concepts/hydration.mdx": "e2eab062e95ca79894a83aa4a8db7bbfba16e6ba47547f21b561bc0a29706e0f",
+        "website/content/docs/concepts/persistence.mdx": "800325f9db2b138d1bd515c4598d4f8fe5bc9fe160539a99c4f7e1bee7c4c8c8",
+        "website/content/docs/concepts/synchronization.mdx": "9dec206392176b5a4824c690472bfec017b2595aa4b0a303ac1548d029bc00ce",
+        "website/content/docs/devtools.mdx": "53f7f0e55cdae71928e01c0f84431cf136bf1b6ab71a445699bd189e949bef84"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "no-change",
+      "reason": "Reviewed the corrected template and references against the existing domain map. The skill inventory and source mappings still apply.",
+      "evidence": [
+        "skills/_artifacts/domain_map.yaml",
+        "skills/_artifacts/skill_spec.md",
+        "src/nusm.ts",
+        "src/sync/coordinator.ts",
+        "src/sync/protocol.ts",
+        "skills/nusm/SKILL.md",
+        "skills/nusm/assets/persisted-store.tsx",
+        "skills/nusm/references/persistence.md",
+        "skills/nusm/references/synchronization.md"
+      ]
+    },
+    "source:.github/workflows/ci.yml": {
+      "fingerprint": "85491191303edba0b1cbba336fd35658f6693123285c0e650bdba94f318d3c9c",
+      "snapshot": {
+        ".github/workflows/ci.yml": "7deb3b018779aea5ae64b4ee64d10f8d5967d2e930feeafaffb5b55fc6a3386e"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Reviewed CI configuration for the skill and its packaged runtime checks.",
+      "evidence": [".github/workflows/ci.yml", "docs/AGENT-SKILL.md"]
+    },
+    "source:.github/workflows/docs.yml": {
+      "fingerprint": "5ab512bab86c93e09d0fdd38d33d0677963ed6e9677220010f1caa4e9158910f",
+      "snapshot": {
+        ".github/workflows/docs.yml": "8a85711d5c269234f283a14fd99970c97286b61652f7431dd0a70d3c03715857"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This site infrastructure or release documentation does not change the store APIs taught by the skill.",
+      "evidence": [
+        ".github/workflows/docs.yml",
+        "skills/_artifacts/domain_map.yaml"
+      ]
+    },
+    "source:.oxfmtrc.json": {
+      "fingerprint": "0507454bdc25638e34f2cb9374e53e70dac82a2df546cf62ee97e6b889f930fe",
+      "snapshot": {
+        ".oxfmtrc.json": null
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This repository formatter or package build configuration does not define the store usage taught by the skill.",
+      "evidence": [".oxfmtrc.json", "skills/nusm/SKILL.md"]
+    },
+    "source:.vale.ini": {
+      "fingerprint": "9cb8b8a260b1586d03a4c97bf7cd85902a10ec4fd4cf421a3455ef4e7f294974",
+      "snapshot": {
+        ".vale.ini": "eb0bcac9a1c7cf3ffedb017f7e14dafd5203eaa781c9b3b7d3c08f671e3309ea"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Added prose checks and evaluation evidence for the packaged skill.",
+      "evidence": [".vale.ini", "docs/AGENT-SKILL.md"]
+    },
+    "source:.vale/.gitignore": {
+      "fingerprint": "5f9089936072f68f69bb7f87d2137a2f4143fa53f3103d5a74727ce9967245c9",
+      "snapshot": {
+        ".vale/.gitignore": "77db1c8ece8cfe17632659f4777f633ef146555f35c5b4318776f656fbcf976d"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Added prose checks and evaluation evidence for the packaged skill.",
+      "evidence": [".vale/.gitignore", "docs/AGENT-SKILL.md"]
+    },
+    "source:.vale/styles/NusmSTE/DescriptiveLength.yml": {
+      "fingerprint": "ed17d074970ae0973c475fdab0b26fff306a6aa977f240b91112e42bde3d126c",
+      "snapshot": {
+        ".vale/styles/NusmSTE/DescriptiveLength.yml": "7eb7ed4cc9520e2830230ac95c4ce290bd4af3f38ceb102c073e153258b97f0c"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Added prose checks and evaluation evidence for the packaged skill.",
+      "evidence": [
+        ".vale/styles/NusmSTE/DescriptiveLength.yml",
+        "docs/AGENT-SKILL.md"
+      ]
+    },
+    "source:.vale/styles/NusmSTE/ProcedureLength.yml": {
+      "fingerprint": "2a4c6557920c8f673cd58ecc691a69b8dddd12be48b939d82dcb86c335dba276",
+      "snapshot": {
+        ".vale/styles/NusmSTE/ProcedureLength.yml": "2c5f433e712ab61239a92c0820fb2c0b44fa103cd93f2e72142541056af29a56"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Added prose checks and evaluation evidence for the packaged skill.",
+      "evidence": [
+        ".vale/styles/NusmSTE/ProcedureLength.yml",
+        "docs/AGENT-SKILL.md"
+      ]
+    },
+    "source:.vale/styles/config/vocabularies/nusm/accept.txt": {
+      "fingerprint": "523bf5f718225b53ed6eba03db27f6a9ab58614ec0fd76bf717ef663b8d2224a",
+      "snapshot": {
+        ".vale/styles/config/vocabularies/nusm/accept.txt": "2f4439f7238bf6e999fe0b3b9f3538acc110c324da0c76c7b71fcf1065a9c89d"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Added prose checks and evaluation evidence for the packaged skill.",
+      "evidence": [
+        ".vale/styles/config/vocabularies/nusm/accept.txt",
+        "docs/AGENT-SKILL.md"
+      ]
+    },
+    "source:README.md": {
+      "fingerprint": "2817146702a2ae564e27a4ea2f0c8246a757249f7bd6f27b007f9161fac55c8e",
+      "snapshot": {
+        "README.md": "0215152f752b7548ff12f0173d96f9cce508c5ad32273b0ece0c0a161e23cfc6"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Documented how to load and maintain the package-owned skill.",
+      "evidence": ["README.md", "skills/nusm/SKILL.md"]
+    },
+    "source:bunfig.toml": {
+      "fingerprint": "0af8bcf6cbf235a7a354bdf9cd0f87eb61b3e98fe7b304903fac80ab21605bc6",
+      "snapshot": {
+        "bunfig.toml": "8cdf5fd85143b35653a80fcb06ddd6558bc0ee9d762942e52a330e4f88855793"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This repository formatter or package build configuration does not define the store usage taught by the skill.",
+      "evidence": ["bunfig.toml", "skills/nusm/SKILL.md"]
+    },
+    "source:docs/AGENT-SKILL.md": {
+      "fingerprint": "26c0d84e27d49dab117cb468f5b6b674c188e6a82a9c5ec28feaf5d19e439ffd",
+      "snapshot": {
+        "docs/AGENT-SKILL.md": "20ddb5e827a20cacbeb9d88d1f48beced9cf17eb1aebadf750a33a99983eeee9"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Documented how to load and maintain the package-owned skill.",
+      "evidence": ["docs/AGENT-SKILL.md", "skills/nusm/SKILL.md"]
+    },
+    "source:example/bun.lock": {
+      "fingerprint": "f3534af2a80e22e6dbcb2eddf372091f94691bab9308cb957b536586979f9dd5",
+      "snapshot": {
+        "example/bun.lock": "2d61f1b9ad3fd8e0df147d79f11222d861a4cd1d9a08213e911a585de63dbd8c"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "no-change",
+      "reason": "The lockfile records TypeScript as an optional peer and preserves the supported range. The packaged skill requires no changes.",
+      "evidence": ["package.json", "example/bun.lock", "skills/nusm/SKILL.md"]
+    },
+    "source:example/src/imports.d.ts": {
+      "fingerprint": "d322fe3f45c74c06ee31fbe3479167d412b9bb507d2a101476e908bf9d6c69b1",
+      "snapshot": {
+        "example/src/imports.d.ts": "705b9aadb775e78cdbd1cdf69dd798d34d9daf7d801ecbd199c56c66fe62b602"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This example dependency or fixture does not define the published skill API or its packaged starter templates.",
+      "evidence": [
+        "example/src/imports.d.ts",
+        "skills/nusm/assets/persisted-store.tsx",
+        "skills/nusm/assets/synchronized-store.ts"
+      ]
+    },
+    "source:example/src/reload-persistence.test.ts": {
+      "fingerprint": "83ba639c4f964254a1371b42be247c997a2118f657ffe69a73009ea090af5cdf",
+      "snapshot": {
+        "example/src/reload-persistence.test.ts": "6e7d7caa2885ab4581249e0d629962dbecd776e63afede45524d0ad446f4cdc6"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This example dependency or fixture does not define the published skill API or its packaged starter templates.",
+      "evidence": [
+        "example/src/reload-persistence.test.ts",
+        "skills/nusm/assets/persisted-store.tsx",
+        "skills/nusm/assets/synchronized-store.ts"
+      ]
+    },
+    "source:example/src/stores.ts": {
+      "fingerprint": "34d2d4e100b4e048a5571a94ee9e6b8503705cf8ab4706908010eff38fec7c0b",
+      "snapshot": {
+        "example/src/stores.ts": "d0d821c411a85c1390e9864069973f2ceb67cbe800297ae2edce357e6fd23f4f"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This example dependency or fixture does not define the published skill API or its packaged starter templates.",
+      "evidence": [
+        "example/src/stores.ts",
+        "skills/nusm/assets/persisted-store.tsx",
+        "skills/nusm/assets/synchronized-store.ts"
+      ]
+    },
+    "source:example/src/synchronization-behavior.test.ts": {
+      "fingerprint": "c5aae07eb0bed7ab7a48e5bce348a5187f4fb6c5c079b9255d1dd880b69de141",
+      "snapshot": {
+        "example/src/synchronization-behavior.test.ts": "85609b048f9c7104889d33f048dc874a9f652f4032b6f93e03ee9d8ef9ea2314"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This example dependency or fixture does not define the published skill API or its packaged starter templates.",
+      "evidence": [
+        "example/src/synchronization-behavior.test.ts",
+        "skills/nusm/assets/persisted-store.tsx",
+        "skills/nusm/assets/synchronized-store.ts"
+      ]
+    },
+    "source:example/test-setup.ts": {
+      "fingerprint": "fa2b232dcc3b9f7ecfd74e64fc7d13fbc08e350cd963e5bb0cc664c2a01e2789",
+      "snapshot": {
+        "example/test-setup.ts": "a59be3d3af67b6ee84ef90e8b9f22f64128dccce1041be6fb7efb7ea0dc1be0c"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This example dependency or fixture does not define the published skill API or its packaged starter templates.",
+      "evidence": [
+        "example/test-setup.ts",
+        "skills/nusm/assets/persisted-store.tsx",
+        "skills/nusm/assets/synchronized-store.ts"
+      ]
+    },
+    "source:example/tsconfig.typecheck.json": {
+      "fingerprint": "ef9180f4a1af821e8de2d3cd090f8d354fdac6a27f4ce809708d087fe80b32e7",
+      "snapshot": {
+        "example/tsconfig.typecheck.json": "7a9e29aed4760eaf2424bebd0af15655b72993376be6ab676469b41a3c8df3e6"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This example dependency or fixture does not define the published skill API or its packaged starter templates.",
+      "evidence": [
+        "example/tsconfig.typecheck.json",
+        "skills/nusm/assets/persisted-store.tsx",
+        "skills/nusm/assets/synchronized-store.ts"
+      ]
+    },
+    "source:scripts/build.ts": {
+      "fingerprint": "a10214f7c2e0e53fb1f3e7ea29f8bed91411b76dc138c68ef071b2f83f2beeb2",
+      "snapshot": {
+        "scripts/build.ts": "ccf5201bc05a901ed4e4d31bcfc692971802980a5fc4e1ce3b3aa9eaf5a054bf"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This repository formatter or package build configuration does not define the store usage taught by the skill.",
+      "evidence": ["scripts/build.ts", "skills/nusm/SKILL.md"]
+    },
+    "source:scripts/check-packed-consumer.ts": {
+      "fingerprint": "4839f2b1b40bcc9335462a155ac77e23c2f9fbe69a04b52287a590e42a515b1b",
+      "snapshot": {
+        "scripts/check-packed-consumer.ts": "a2c7edc8f50fb99e807a4fa8d45e933b71e00a456e378183ed9019b6f41db5a3"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Added browser execution of both packaged starter templates to verify storage and synchronization behavior.",
+      "evidence": ["scripts/check-packed-consumer.ts", "docs/AGENT-SKILL.md"]
+    },
+    "source:scripts/skills/check-vale.ts": {
+      "fingerprint": "ff3ae8c466bc17cfecc85993d0e4ad4fdc2440a4aac332bacd0d7a4117e4302e",
+      "snapshot": {
+        "scripts/skills/check-vale.ts": "82369269c2209c99848a5e496dea4a6b52472a4b9a389a7457197266fe459a99"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Added prose checks and evaluation evidence for the packaged skill.",
+      "evidence": ["scripts/skills/check-vale.ts", "docs/AGENT-SKILL.md"]
+    },
+    "source:scripts/skills/eval-results.md": {
+      "fingerprint": "2ea5488cf90606fda8b1be0889a6f839a15f3a130a8bb95f090899290235e511",
+      "snapshot": {
+        "scripts/skills/eval-results.md": "cb11618133325e343b7b879dd0517564f14c2942451c15ed484b22079efd608b"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Recorded the revised evaluation results and separate packed-browser runtime checks.",
+      "evidence": ["scripts/skills/eval-results.md", "docs/AGENT-SKILL.md"]
+    },
+    "source:scripts/skills/evals.json": {
+      "fingerprint": "6b3e48e3a2bf1ab84ec1480b436446fcdc477f400a052311a32f3203af860322",
+      "snapshot": {
+        "scripts/skills/evals.json": "bdb5df458bb4c93e7ae712031921d24a699e8ebb89e3f678fd16737e845dfb88"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Added a runtime acceptance criterion and distinguished configured sync sources from adapter subscriptions.",
+      "evidence": ["scripts/skills/evals.json", "docs/AGENT-SKILL.md"]
+    },
+    "source:scripts/skills/vale-fixtures/fail.md": {
+      "fingerprint": "bb47f7576244aacf5f99974e25a9e6f316238fc77c80386548d917c68bce3ce5",
+      "snapshot": {
+        "scripts/skills/vale-fixtures/fail.md": "5f61325aefbd71ce8e666c2e38f42565fa06936a4cc8b6f5430fdead3d484a1f"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Added prose checks and evaluation evidence for the packaged skill.",
+      "evidence": [
+        "scripts/skills/vale-fixtures/fail.md",
+        "docs/AGENT-SKILL.md"
+      ]
+    },
+    "source:scripts/skills/vale-fixtures/pass.md": {
+      "fingerprint": "46d55c0c7f2fa76fd701173889c674d48a754155327e710e462f24ce980907ff",
+      "snapshot": {
+        "scripts/skills/vale-fixtures/pass.md": "291789b090b49ecfa67e703db6df9f31ebeb0ad782603ddfc069a323f151c71b"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Added prose checks and evaluation evidence for the packaged skill.",
+      "evidence": [
+        "scripts/skills/vale-fixtures/pass.md",
+        "docs/AGENT-SKILL.md"
+      ]
+    },
+    "source:tests/sync/coordinator.convergence.test.ts": {
+      "fingerprint": "125588f55c57ca6ecedee113b2da6f82866888f7e1e2945b5b1b0b950d27b3b3",
+      "snapshot": {
+        "tests/sync/coordinator.convergence.test.ts": "ed924bff1bedddb295024206d9df10f56a11133d6e2d32265912571d767bbfdb"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "no-change",
+      "reason": "The test exercises coordinator convergence. Existing skill guidance already covers source ordering and channel scope.",
+      "evidence": [
+        "tests/sync/coordinator.convergence.test.ts",
+        "skills/nusm/references/synchronization.md"
+      ]
+    },
+    "source:tsconfig.build.json": {
+      "fingerprint": "d5d405e82777bcd878eb3443ac69e130ec76759e246c212565ca8a7e0132d8d2",
+      "snapshot": {
+        "tsconfig.build.json": "b34038099943be5fc6570165732e3d972bbacb68371c46cd35f4d5786e56a76a"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This repository formatter or package build configuration does not define the store usage taught by the skill.",
+      "evidence": ["tsconfig.build.json", "skills/nusm/SKILL.md"]
+    },
+    "source:website/.gitignore": {
+      "fingerprint": "2353fb672432ed9fd908749b3cc2a879a60e0d81ae79b29053de557578a69133",
+      "snapshot": {
+        "website/.gitignore": "083b663612e0a2012b920dc2c94f8b790964cd921e94d752f82b84ddcf1ce034"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This site infrastructure or release documentation does not change the store APIs taught by the skill.",
+      "evidence": ["website/.gitignore", "skills/_artifacts/domain_map.yaml"]
+    },
+    "source:website/bun.lock": {
+      "fingerprint": "71fa2471dfdf4b42b2394a10dfd2dfefa07bfdda7b484168f4f3ec3effa21468",
+      "snapshot": {
+        "website/bun.lock": "f8a1deb35952a4879089bc4e2a34584e31bd970c7df5e41f4474f09a98fa9237"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This site infrastructure or release documentation does not change the store APIs taught by the skill.",
+      "evidence": ["website/bun.lock", "skills/_artifacts/domain_map.yaml"]
+    },
+    "source:website/content/docs/getting-started/agent-skills.mdx": {
+      "fingerprint": "d75c7451e131bae10dd0af016ce4d822444b00860c0425bc60f82fee89e88a4b",
+      "snapshot": {
+        "website/content/docs/getting-started/agent-skills.mdx": "3740ad2a53bb21110ea09c2fc8dfd5a569f69ecbeb1bf5c546c2209b2342caa1"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Documented how to load and maintain the package-owned skill.",
+      "evidence": [
+        "website/content/docs/getting-started/agent-skills.mdx",
+        "skills/nusm/SKILL.md"
+      ]
+    },
+    "source:website/content/docs/getting-started/meta.json": {
+      "fingerprint": "23d6e03b510b289f087ca570f8e899e0cb51f3ccfeba157e56b2f6ba9ba72780",
+      "snapshot": {
+        "website/content/docs/getting-started/meta.json": "b2671681338e8a3e4bc484ca52e4dcd3bb78d44f9ddd0faa2e6aa6a59990832c"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "updated",
+      "reason": "Documented how to load and maintain the package-owned skill.",
+      "evidence": [
+        "website/content/docs/getting-started/meta.json",
+        "skills/nusm/SKILL.md"
+      ]
+    },
+    "source:website/content/docs/meta.json": {
+      "fingerprint": "af2876aad32fb5ce5d14da916708e00f7d2226dc71c3cd3f715d1b2ea79b232f",
+      "snapshot": {
+        "website/content/docs/meta.json": "83a5056f01b04d701c9313bbdcd368e952d7c82ff72aac4e3037758ab689e5de"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This site infrastructure or release documentation does not change the store APIs taught by the skill.",
+      "evidence": [
+        "website/content/docs/meta.json",
+        "skills/_artifacts/domain_map.yaml"
+      ]
+    },
+    "source:website/scripts/generate-release-docs.test.ts": {
+      "fingerprint": "3f3eb8f831488d43596fc281b7755795ee828c2f76237e84f8918236fe5d1fbc",
+      "snapshot": {
+        "website/scripts/generate-release-docs.test.ts": "a940fb165e7ec62e1fe574a84334b94ba7f0d927fc84bd88398680b092b3e1ce"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This site infrastructure or release documentation does not change the store APIs taught by the skill.",
+      "evidence": [
+        "website/scripts/generate-release-docs.test.ts",
+        "skills/_artifacts/domain_map.yaml"
+      ]
+    },
+    "source:website/scripts/generate-release-docs.ts": {
+      "fingerprint": "1ed3071fdde647a901d61ff32b6be8a86cfe826043ce5d769a3413b9a21a6b94",
+      "snapshot": {
+        "website/scripts/generate-release-docs.ts": "0573823a84c01f6662387a091a18efff1e870336be7a8aa8dce72f449e9a6276"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This site infrastructure or release documentation does not change the store APIs taught by the skill.",
+      "evidence": [
+        "website/scripts/generate-release-docs.ts",
+        "skills/_artifacts/domain_map.yaml"
+      ]
+    },
+    "source:website/scripts/verify-static-build.ts": {
+      "fingerprint": "18d41a8b72fa3c059740bac47811aa9005b18c3b4131afcdf01e76f78d0500b3",
+      "snapshot": {
+        "website/scripts/verify-static-build.ts": "832e1394204bcf95c95016fdd0fe30a5faf12bd2ed444950ac240cacbb1365e0"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This site infrastructure or release documentation does not change the store APIs taught by the skill.",
+      "evidence": [
+        "website/scripts/verify-static-build.ts",
+        "skills/_artifacts/domain_map.yaml"
+      ]
+    },
+    "source:website/vite.config.ts": {
+      "fingerprint": "6009bb29d6d3f2c56ccc822244e917c2fc264ad35f562b67eed4f3469c99c943",
+      "snapshot": {
+        "website/vite.config.ts": "49c27b52e74e1e90e147f485757c7507e9eea0fc6ff195081fdbd6eb3a06e0e2"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "out-of-scope",
+      "reason": "This site infrastructure or release documentation does not change the store APIs taught by the skill.",
+      "evidence": [
+        "website/vite.config.ts",
+        "skills/_artifacts/domain_map.yaml"
+      ]
+    },
+    "source:tests/devtools/panel.accessibility.test.tsx": {
+      "fingerprint": "201deb65c7d891f0175b5e12cc4db24242322713d0a57f688954dae9593061c7",
+      "snapshot": {
+        "tests/devtools/panel.accessibility.test.tsx": "270b218ebfa47e4e3fe5b25f2510fc3903fbd061c7257bcf7d1a6a1d4c630f60"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "no-change",
+      "reason": "The tests verify panel behavior. Existing Devtools guidance still applies.",
+      "evidence": [
+        "tests/devtools/panel.accessibility.test.tsx",
+        "skills/nusm/references/react-devtools.md"
+      ]
+    },
+    "source:tests/devtools/panel.commands.test.tsx": {
+      "fingerprint": "2a1444ce3dd015e464bb5bad9a150d3c931c9f4632653a8710387d86b1711b1f",
+      "snapshot": {
+        "tests/devtools/panel.commands.test.tsx": "b3de8d0298c1ecbc81670e3827c7d494518e31c5d6fc3b17d9789255c27ddcd7"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "no-change",
+      "reason": "The tests verify panel behavior. Existing Devtools guidance still applies.",
+      "evidence": [
+        "tests/devtools/panel.commands.test.tsx",
+        "skills/nusm/references/react-devtools.md"
+      ]
+    },
+    "source:tests/devtools/panel.health.test.tsx": {
+      "fingerprint": "1c0f5cd67ac84eb795f38ce41e7f0c38f76d89646fe992db581e6597ebb4d20c",
+      "snapshot": {
+        "tests/devtools/panel.health.test.tsx": "d5b8ec6524a4318df98a53a0693e65b3e6c56c8513cc0ad4bda83f1ee6ffdc40"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "no-change",
+      "reason": "The tests verify panel behavior. Existing Devtools guidance still applies.",
+      "evidence": [
+        "tests/devtools/panel.health.test.tsx",
+        "skills/nusm/references/react-devtools.md"
+      ]
+    },
+    "source:tests/devtools/path.test.ts": {
+      "fingerprint": "76b871c07d32dbadb7645f3410d747614b125135c4e0034cc4999e53ff39f6d2",
+      "snapshot": {
+        "tests/devtools/path.test.ts": "0db83632014c63bf8c860eccf777f376215a91aab7b6ad0784030f0cf381dc8a"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "no-change",
+      "reason": "The tests verify panel behavior. Existing Devtools guidance still applies.",
+      "evidence": [
+        "tests/devtools/path.test.ts",
+        "skills/nusm/references/react-devtools.md"
+      ]
+    },
+    "source:tests/nusm-adapter-ordering.test.ts": {
+      "fingerprint": "0c20bf2b54a42fb05c6ad70c9b3d4cd1fb0eec40f630acf7f29f245a44fb3faa",
+      "snapshot": {
+        "tests/nusm-adapter-ordering.test.ts": "cb57c1dc88375da08888227a65106db3dfba6c9e6e386af6e0230ef2da330a6f"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "no-change",
+      "reason": "The tests verify adapter ordering or persistence. Existing persistence guidance still applies.",
+      "evidence": [
+        "tests/nusm-adapter-ordering.test.ts",
+        "skills/nusm/references/persistence.md"
+      ]
+    },
+    "source:tests/nusm-persistence-coverage.test.ts": {
+      "fingerprint": "ac744ef36565e365f4955e7f02976a3443ce00d65c13416d9a1f9c46d9fc9a77",
+      "snapshot": {
+        "tests/nusm-persistence-coverage.test.ts": "c8d160479259df322483b6737fc8dd320baa8701164cb74a17f3428c9fa5097a"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "no-change",
+      "reason": "The tests verify adapter ordering or persistence. Existing persistence guidance still applies.",
+      "evidence": [
+        "tests/nusm-persistence-coverage.test.ts",
+        "skills/nusm/references/persistence.md"
+      ]
+    },
+    "source:tests/react/useStore.test.ts": {
+      "fingerprint": "6616b5f734bc889f495c2176382d79c2ddaffd4f3abf6bd9a268cba4fc46f37a",
+      "snapshot": {
+        "tests/react/useStore.test.ts": "5940a1aa3fe84de07ecb8b61c8ede43c101ea800f6bfdc6381814598d8b5e2be"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "no-change",
+      "reason": "The test verifies React subscription cleanup. Existing React guidance still applies.",
+      "evidence": [
+        "tests/react/useStore.test.ts",
+        "skills/nusm/references/react-devtools.md"
+      ]
+    },
+    "source:tests/sync/broadcastChannel.test.ts": {
+      "fingerprint": "ef5aa7bacd7cd50582f130772147838e2306640adb136fa2a49915d50435a70e",
+      "snapshot": {
+        "tests/sync/broadcastChannel.test.ts": "37fb27f4e96b388c637426cdb71a1e0cb7221cb851276f805737ed0517697197"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "no-change",
+      "reason": "The tests verify channel, protocol, or coordinator behavior. Existing synchronization guidance still applies.",
+      "evidence": [
+        "tests/sync/broadcastChannel.test.ts",
+        "skills/nusm/references/synchronization.md"
+      ]
+    },
+    "source:tests/sync/coordinator.test.ts": {
+      "fingerprint": "4d08533af27f227bddafe58e74a897e5cf914c0bb8e0cd7d69a60c3d57b902ad",
+      "snapshot": {
+        "tests/sync/coordinator.test.ts": "9cbc4c1651c0d2787683d6f5756c750692023296e424e0efb770d18fe4611257"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "no-change",
+      "reason": "The tests verify channel, protocol, or coordinator behavior. Existing synchronization guidance still applies.",
+      "evidence": [
+        "tests/sync/coordinator.test.ts",
+        "skills/nusm/references/synchronization.md"
+      ]
+    },
+    "source:tests/sync/protocol.test.ts": {
+      "fingerprint": "15840446f4a52e6f710a0b2569f1cee0b7d9c8ae5970b142ba9665826eeed14a",
+      "snapshot": {
+        "tests/sync/protocol.test.ts": "5dee192fd6ac4ab62a05d898fcbc9a0c2bc7417a6e2eca5d3207a720b06637cc"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "no-change",
+      "reason": "The tests verify channel, protocol, or coordinator behavior. Existing synchronization guidance still applies.",
+      "evidence": [
+        "tests/sync/protocol.test.ts",
+        "skills/nusm/references/synchronization.md"
+      ]
+    },
+    "source:tests/package.test.ts": {
+      "fingerprint": "8c2f5acd19a22859fafeab482d638981ed97f84d02a927a5166019a35a341c7b",
+      "snapshot": {
+        "tests/package.test.ts": "e2610e44c191b3bcd32842e9ab2d609d519058ae7d00048fbcb9e31cd1caa66a"
+      },
+      "head": "dcaa8a76f5d3d4983913eafec0956d43054e4f7b",
+      "outcome": "no-change",
+      "reason": "The test verifies that published and source-linked peer metadata match and TypeScript remains optional. Existing skill guidance still applies.",
+      "evidence": ["tests/package.test.ts", "package.json", "src/package.json"]
+    }
+  }
+}

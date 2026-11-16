@@ -614,8 +614,7 @@ describe("synchronization coordinator convergence", () => {
   test("queues callback updates until replay finishes", async () => {
     const bus = createBus();
     let leader:
-      | ReturnType<typeof createNusmStore<{ value: number }>>
-      | undefined;
+      ReturnType<typeof createNusmStore<{ value: number }>> | undefined;
     leader = createNusmStore(
       { value: 0 },
       {

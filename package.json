@@ -1,10 +1,10 @@
 {
   "dependencies": {
-    "@fastify/deepmerge": "^3.2.2",
-    "@tanstack/devtools-event-client": "^0.5.0",
+    "@fastify/deepmerge": "^3.2.4",
+    "@tanstack/devtools-event-client": "^0.5.1",
     "@tanstack/pacer": "^0.23.1",
     "@tanstack/store": "^0.11.2",
-    "fast-equals": "^6.1.0",
+    "fast-equals": "^6.2.2",
     "superjson": "^2.2.6",
     "use-sync-external-store": "^1.7.0"
   },
@@ -14,59 +14,65 @@
   },
   "devDependencies": {
     "@bun-security-scanner/osv": "^1.0.0",
-    "@commitlint/cli": "^21.2.3",
-    "@commitlint/config-conventional": "^21.2.3",
-    "@happy-dom/global-registrator": "^20.14.5",
-    "@release-it/conventional-changelog": "^12.0.2",
-    "@tanstack/devtools": "^0.15.0",
-    "@tanstack/devtools-utils": "^0.7.0",
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "@happy-dom/global-registrator": "^21.0.4",
+    "@tanstack/devtools": "^0.16.0",
+    "@tanstack/devtools-utils": "^0.7.2",
+    "@tanstack/intent": "0.5.6",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
-    "@types/bun": "^1.4.2",
+    "@types/bun": "^1.4.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/use-sync-external-store": "^1.7.0",
-    "conventional-changelog-conventionalcommits": "^10.4.1",
-    "fake-indexeddb": "^6.2.5",
+    "fake-indexeddb": "^6.2.8",
     "husky": "^9.1.7",
-    "lint-staged": "^17.6.0",
-    "lucide-react": "^1.53.0",
-    "oxfmt": "^0.72.0",
-    "oxlint": "^1.87.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "release-it": "^21.1.1",
+    "lint-staged": "^17.6.1",
+    "lucide-react": "^1.73.0",
+    "oxc-parser": "^0.159.0",
+    "oxc-transform": "^0.159.0",
+    "oxlint": "^1.94.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "typescript": "^7.0.2"
   },
   "exports": {
     ".": {
-      "default": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./devtools": {
-      "default": "./dist/devtools/index.js",
-      "types": "./dist/devtools/index.d.ts"
+      "types": "./dist/devtools/index.d.ts",
+      "default": "./dist/devtools/index.js"
     },
     "./react": {
-      "default": "./dist/react/index.js",
-      "types": "./dist/react/index.d.ts"
+      "types": "./dist/react/index.d.ts",
+      "default": "./dist/react/index.js"
     }
   },
   "files": [
     "dist",
     "README.md",
     "LICENSE",
-    "docs"
+    "docs",
+    "!docs/AGENT-SKILL.md",
+    "!docs/RELEASING.md",
+    "skills/nusm"
+  ],
+  "keywords": [
+    "tanstack-intent"
   ],
   "license": "MIT",
+  "packageManager": "bun@1.4.4",
   "lint-staged": {
     "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [
-      "oxfmt --no-error-on-unmatched-pattern",
+      "bun fmt",
       "oxlint --deny-warnings --no-error-on-unmatched-pattern"
     ],
     "*.{json,jsonc,md,mdx,css,html,yml,yaml}": [
-      "oxfmt --no-error-on-unmatched-pattern"
+      "bun fmt"
     ]
   },
   "main": "dist/index.js",
@@ -74,16 +80,19 @@
   "name": "nusm",
   "overrides": {
     "ajv": "8.20.0",
-    "basic-ftp": "6.2.2",
+    "basic-ftp": "6.2.6",
     "defu": "6.1.7",
-    "fast-uri": "4.2.1",
+    "fast-uri": "4.2.3",
     "handlebars": "4.7.10",
-    "ip-address": "10.7.3",
-    "js-yaml": "5.4.3",
-    "picomatch": "4.0.7"
+    "ip-address": "10.7.6",
+    "js-yaml": "5.5.0",
+    "picomatch": "4.0.7",
+    "seroval": "1.8.1",
+    "seroval-plugins": "1.8.0",
+    "zod": "4.6.7"
   },
   "peerDependencies": {
-    "@tanstack/devtools": "^0.12.5 || ^0.13.0 || ^0.14.0 || ^0.15.0",
+    "@tanstack/devtools": "^0.12.5 || ^0.13.0 || ^0.14.0 || ^0.15.0 || ^0.16.0",
     "@tanstack/devtools-utils": "^0.6.0 || ^0.7.0",
     "lucide-react": ">=0.468.0",
     "react": ">=18.0.0",
@@ -105,44 +114,35 @@
     },
     "react-dom": {
       "optional": true
+    },
+    "typescript": {
+      "optional": true
     }
   },
-  "release-it": {
-    "git": {
-      "commitMessage": "chore: release v${version}",
-      "pushRepo": "origin",
-      "requireBranch": "main",
-      "requireCommits": true
-    },
-    "github": {
-      "release": true
-    },
-    "npm": {
-      "publish": true
-    },
-    "plugins": {
-      "@release-it/conventional-changelog": {
-        "header": "# Changelog",
-        "infile": "CHANGELOG.md",
-        "preset": "angular"
-      }
-    }
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mwillbanks/nusm.git"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "bun scripts/build.ts",
     "example:build": "bun run --cwd example build",
     "example:devtools": "bun run build && bun run --cwd example dev",
     "example:serve": "bun run --cwd example serve",
     "example:test": "bun run --cwd example test",
-    "format": "oxfmt .",
-    "format:check": "oxfmt --check .",
+    "example:typecheck": "bun run --cwd example typecheck",
+    "format": "bun fmt .",
+    "format:check": "bun fmt --check .",
+    "intent:check": "intent maintainer check",
     "lint": "oxlint --deny-warnings .",
     "lint:fix": "oxlint --fix --deny-warnings .",
+    "pack:check": "bun scripts/check-packed-consumer.ts",
+    "prepack": "bun run build",
     "prepare": "./node_modules/.bin/husky",
+    "skill:lint": "vale --no-global skills/nusm",
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "test:workspace": "bun test",
-    "typecheck": "tsc -p tsconfig.build.json --noEmit"
+    "typecheck": "bun check -p tsconfig.build.json && bun check scripts/build.ts scripts/check-packed-consumer.ts"
   },
   "type": "module",
   "types": "dist/index.d.ts",

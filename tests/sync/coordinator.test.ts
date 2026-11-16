@@ -1,8 +1,9 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, jest, test } from "bun:test";
 import { configureNusm, createNusmStore } from "../../src/index.js";
 import { createNusmSyncCoordinator } from "../../src/sync/coordinator.js";
 import type {
   NusmSyncContext,
+  NusmSyncEvent,
   NusmSyncSource,
   NusmSyncStatus,
 } from "../../src/sync/types.js";
@@ -17,6 +18,196 @@ const validateSyncCandidate = (candidate: unknown, context: NusmSyncContext) =>
   candidate !== null;
 
 describe("synchronization coordinator", () => {
+  test("keeps the accepted revision as the baseline after a prior rejection", async () => {
+    const storeId = "validation-baseline";
+    const received: number[] = [];
+    const rejected: string[] = [];
+    const coordinator = createNusmSyncCoordinator<number>({
+      onEvent: (event) => {
+        if (event.state !== undefined) received.push(event.state);
+      },
+      onRejected: (_, event) => rejected.push(event.eventId),
+      storeId,
+      validator: (state) => ({ ok: state !== 1 }),
+    });
+    try {
+      for (const counter of [1, 2, 3]) {
+        await coordinator.enqueue({
+          eventId: `update-${counter}`,
+          kind: "update",
+          revision: { counter, senderId: "peer" },
+          sourceId: "peer",
+          state: counter,
+          storeId,
+        });
+      }
+      expect(rejected).toEqual(["update-1"]);
+      expect(received).toEqual([2, 3]);
+    } finally {
+      await coordinator.dispose();
+    }
+  });
+
+  test.serial(
+    "compacts queued updates and retains their provisional epoch during hydration",
+    async () => {
+      jest.useFakeTimers({ now: 1_000 });
+      const storeId = "provisional-revisions";
+      const published: NusmSyncEvent<number>[] = [];
+      const received: string[] = [];
+      const coordinator = createNusmSyncCoordinator<number>({
+        onEvent: (event) => {
+          received.push(event.eventId);
+        },
+        sources: {
+          publish: (event) => {
+            published.push(event);
+          },
+          start: () => undefined,
+        },
+        storeId,
+      });
+      try {
+        await coordinator.start();
+        const localId = coordinator.nextRevision().senderId;
+        const peerId = localId.slice(0, 1);
+        await coordinator.enqueue({
+          creationTime: 1_000,
+          eventId: "hydrating",
+          hydration: "hydrating",
+          kind: "ready",
+          sourceId: peerId,
+          storeId,
+        });
+        await coordinator.announceReady(0);
+        expect(coordinator.isConverged()).toBe(false);
+        expect(published.map((event) => event.kind)).toEqual(["ready"]);
+
+        const queued: NusmSyncEvent<number>[] = [];
+        for (let index = 0; index <= 256; index += 1) {
+          const event: NusmSyncEvent<number> = {
+            eventId: `local-${index}`,
+            kind: "update",
+            sourceId: localId,
+            state: index,
+            storeId,
+          };
+          queued.push(event);
+          await coordinator.publish(event);
+        }
+        expect(queued[0]?.revision).toBeUndefined();
+        expect(queued[1]?.revision).toEqual({
+          counter: 1,
+          epoch: "0",
+          senderId: localId,
+        });
+        expect(queued.at(-1)?.revision?.counter).toBe(256);
+
+        await coordinator.enqueue({
+          creationTime: 999,
+          eventId: "ready",
+          hydration: "ready",
+          kind: "ready",
+          sourceId: peerId,
+          storeId,
+        });
+        await coordinator.waitForIdle();
+        const requestId = published.find(
+          (event) => event.kind === "request",
+        )?.requestId;
+        expect(requestId).toBeDefined();
+        await coordinator.enqueue({
+          eventId: "snapshot",
+          kind: "snapshot",
+          requestId,
+          revision: { counter: 1, epoch: "1", senderId: peerId },
+          sourceId: peerId,
+          state: 100,
+          storeId,
+          targetId: localId,
+        });
+        expect(coordinator.nextRevision()).toEqual({
+          counter: 257,
+          epoch: "0",
+          senderId: localId,
+        });
+        await coordinator.enqueue({
+          eventId: "gap",
+          kind: "update",
+          revision: { counter: 3, epoch: "1", senderId: peerId },
+          sourceId: peerId,
+          state: 300,
+          storeId,
+        });
+        expect(received).toEqual(["snapshot"]);
+        expect(jest.getTimerCount()).toBeGreaterThan(0);
+      } finally {
+        try {
+          await coordinator.dispose();
+          jest.advanceTimersByTime(0);
+          expect(jest.getTimerCount()).toBe(0);
+        } finally {
+          jest.useRealTimers();
+        }
+      }
+    },
+  );
+
+  test.serial("bounds snapshot history across successive leaders", async () => {
+    jest.useFakeTimers({ now: 1_000 });
+    const storeId = "bounded-snapshots";
+    const snapshots: string[] = [];
+    let request: NusmSyncEvent<number> | undefined;
+    const coordinator = createNusmSyncCoordinator<number>({
+      onEvent: (event) => {
+        snapshots.push(event.eventId);
+      },
+      sources: {
+        publish: (event) => {
+          if (event.kind === "request") request = event;
+        },
+        start: () => undefined,
+      },
+      storeId,
+    });
+    try {
+      await coordinator.start();
+      const localId = coordinator.nextRevision().senderId;
+      await coordinator.announceReady(0);
+      for (let index = 0; index <= 256; index += 1) {
+        const peerId = `peer-${index}`;
+        await coordinator.enqueue({
+          creationTime: 999 - index,
+          eventId: "ready",
+          kind: "ready",
+          sourceId: peerId,
+          storeId,
+        });
+        await coordinator.waitForIdle();
+        expect(request?.targetId).toBe(peerId);
+        await coordinator.enqueue({
+          eventId: `snapshot-${index}`,
+          kind: "snapshot",
+          requestId: request?.requestId,
+          revision: { counter: 1, epoch: "0", senderId: peerId },
+          sourceId: peerId,
+          state: index,
+          storeId,
+          targetId: localId,
+        });
+      }
+      expect(snapshots).toHaveLength(257);
+      expect(snapshots.at(-1)).toBe("snapshot-256");
+    } finally {
+      try {
+        await coordinator.dispose();
+        jest.advanceTimersByTime(0);
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        jest.useRealTimers();
+      }
+    }
+  });
   test("uses Web Crypto random bytes for a coordinator identity fallback", async () => {
     const randomUuid = crypto.randomUUID;
     const randomValues = crypto.getRandomValues;

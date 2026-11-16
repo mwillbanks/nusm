@@ -1,4 +1,4 @@
-import type { SVGProps } from "react";
+import type { JSX, SVGProps } from "react";
 
 export type NusmLogoProps = SVGProps<SVGSVGElement>;
 
@@ -7,7 +7,7 @@ export function NusmLogo({
   height = 18,
   width = 34,
   ...props
-}: NusmLogoProps) {
+}: NusmLogoProps): JSX.Element {
   return (
     <svg
       aria-label={ariaLabel}

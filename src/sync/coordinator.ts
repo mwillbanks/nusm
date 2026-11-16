@@ -514,14 +514,10 @@ export const createNusmSyncCoordinator = <TState>(
           senderId: localId,
         }
       : previous;
-  const compactQueuedPublishes = () => {
+  const compactQueuedPublishes = (base: NusmSyncRevision) => {
     if (queuedPublishes.length <= MAX_QUEUED_PUBLISHES) return;
     const retained = queuedPublishes.slice(-MAX_QUEUED_PUBLISHES);
-    let revision = queuedRevisionBase ?? {
-      counter: 0,
-      epoch: "0",
-      senderId: localId,
-    };
+    let revision = base;
     queuedPublishes.splice(0, queuedPublishes.length);
     for (const event of retained) {
       revision = nextRevisionAfter(revision);
@@ -541,7 +537,7 @@ export const createNusmSyncCoordinator = <TState>(
         senderId: localId,
       };
     queuedPublishes.push(event);
-    compactQueuedPublishes();
+    compactQueuedPublishes(queuedRevisionBase);
     return publishQueue;
   };
   const publish = (event: NusmSyncEvent<TState>) => {

@@ -63,9 +63,9 @@ describe("example persistence reload", () => {
       first.preferences.ready,
       first.session.ready,
     ]);
-    first.preferences.setState({ accent: "electric" });
-    first.session.setState({ drafts: 9 });
-    first.activity.setState({ events: [{ id: "persisted-event" }] });
+    first.preferences.setState(() => ({ accent: "electric" }));
+    first.session.setState(() => ({ drafts: 9 }));
+    first.activity.setState(() => ({ events: [{ id: "persisted-event" }] }));
     await new Promise((resolve) => setTimeout(resolve, 25));
 
     const second = createLifecycle();

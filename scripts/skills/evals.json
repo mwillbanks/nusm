@@ -1,0 +1,143 @@
+{
+  "routing": [
+    {
+      "id": "R01",
+      "activate": true,
+      "prompt": "I'm using nusm. How can I retain the table layout after a reload without persisting the current row selection?"
+    },
+    {
+      "id": "R02",
+      "activate": false,
+      "prompt": "Explain the difference between hydration and server-side rendering in a plain React app."
+    },
+    {
+      "id": "R03",
+      "activate": true,
+      "prompt": "Two tabs use the same nusm `storeId` but updates don't cross. Each tab generates a random key at startup. What should I change?"
+    },
+    {
+      "id": "R04",
+      "activate": false,
+      "prompt": "Using TanStack Query, keep a request result across reloads and refetch stale entries."
+    },
+    {
+      "id": "R05",
+      "activate": true,
+      "prompt": "Our saved nusm settings have an old schema. How should I migrate them at load without overwriting data after a read error?"
+    },
+    {
+      "id": "R06",
+      "activate": false,
+      "prompt": "In Zustand, write a persisted store with `partialize` and configure a selector."
+    },
+    {
+      "id": "R07",
+      "activate": true,
+      "prompt": "The settings UI already imports `useStore` from `nusm/react`. How do I stop it rerendering for unrelated store changes?"
+    },
+    {
+      "id": "R08",
+      "activate": false,
+      "prompt": "Use `@tanstack/store` directly for a small derived atom. No wrapper or persistence is needed."
+    },
+    {
+      "id": "R09",
+      "activate": true,
+      "prompt": "The browser inspector shows both nusm stores with the same label. How do I identify the instance whose adapter changed?"
+    },
+    {
+      "id": "R10",
+      "activate": false,
+      "prompt": "Install the TanStack Router Devtools panel for a Router-only app and disable it in production."
+    },
+    {
+      "id": "R11",
+      "activate": true,
+      "prompt": "Write a `NusmAdapter` over an async key-value store. Explain how reads must represent missing keys and service failures."
+    },
+    {
+      "id": "R12",
+      "activate": false,
+      "prompt": "Write a browser storage adapter for a tool that only uses the IndexedDB API."
+    },
+    {
+      "id": "R13",
+      "activate": true,
+      "prompt": "When the modal closes, a nusm store may still be restoring state. What can I expect from `ready` and `dispose()`?"
+    },
+    {
+      "id": "R14",
+      "activate": false,
+      "prompt": "Explain HMAC signing and AES encryption for two worker processes that communicate over a socket."
+    },
+    {
+      "id": "R15",
+      "activate": true,
+      "prompt": "We have a package importing `createNusmStore` with an adapter. Can one saved field reset without restoring or replacing the rest of the store?"
+    },
+    {
+      "id": "R16",
+      "activate": false,
+      "prompt": "Edit the nusm repository's Release Please configuration to keep the current tag format."
+    },
+    {
+      "id": "R17",
+      "activate": true,
+      "prompt": "Add the nusm inspector to an existing TanStack Devtools shell and keep snapshots out of production."
+    },
+    {
+      "id": "R18",
+      "activate": false,
+      "prompt": "Bun strips types during builds. How should a library emit definitions for its npm exports?"
+    },
+    {
+      "id": "R19",
+      "activate": true,
+      "prompt": "In a nusm app, I only want this one identified store to stay local even though the app has global cross-tab sync."
+    },
+    {
+      "id": "R20",
+      "activate": false,
+      "prompt": "Configure `BroadcastChannel` for plain JavaScript event messages, with no state library or authentication."
+    }
+  ],
+  "behavior": [
+    {
+      "id": "B01",
+      "prompt": "A nusm React dashboard should save its theme across reloads, but search text must reset. Show a typed approach and explain where to wait for restored settings.",
+      "critical": [
+        "Persist only the theme with slices or an independent store.",
+        "Use a client-owned store and a stable store ID.",
+        "Read React state with nusm/react and account for store.ready when restored state affects the initial decision.",
+        "Show a runtime-valid configuration. If the adapter implements subscribe, configure sync.validator or a documented global validator, separately from persist.hydrate.validate."
+      ]
+    },
+    {
+      "id": "B02",
+      "prompt": "Stored nusm settings from the previous release use a different shape. Also, a failed adapter read sometimes causes old data to be reset. How should I validate, recover, and close the store if a user navigates away?",
+      "critical": [
+        "Use hydrate.validate to migrate or reject persisted values.",
+        "Treat adapter failures as failures, never as a missing key.",
+        "Account for ready rejection on disposal and report cleanup errors."
+      ]
+    },
+    {
+      "id": "B03",
+      "prompt": "Add authenticated nusm cross-tab sync for a shared counter. Show how you choose key material, identity, and validation. Exclude a separate store from the app's default sync source.",
+      "critical": [
+        "Provision the same runtime key and namespace to authorized tabs, with at least 32 random bytes or non-extractable HMAC SHA-256 for signing and verification.",
+        "Use a stable explicit store ID and reject invalid candidate state.",
+        "Opt out of configured sources with sync: false without claiming it disables adapter subscriptions or provides encryption or cross-origin security."
+      ]
+    },
+    {
+      "id": "B04",
+      "prompt": "Wire a nusm store into a React TanStack Devtools shell. Explain how to tell live edits from saved edits when two stores share a label.",
+      "critical": [
+        "Enable the store's devtools and mount a stable createNusmDevtoolsPlugin instance.",
+        "Limit inspection to development and protect state snapshots.",
+        "Distinguish runtime instance identity and memory edits from adapter writes."
+      ]
+    }
+  ]
+}

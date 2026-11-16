@@ -1,13 +1,9 @@
 {
   "compilerOptions": {
     "allowImportingTsExtensions": false,
-    "declaration": true,
-    "declarationMap": true,
     "module": "ESNext",
-    "noEmit": false,
-    "outDir": "dist",
     "rootDir": "src",
-    "sourceMap": true
+    "types": ["bun", "react", "react-dom"]
   },
   "extends": "./tsconfig.json",
   "include": ["src/**/*"]

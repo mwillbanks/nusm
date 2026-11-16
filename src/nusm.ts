@@ -207,8 +207,7 @@ export function createNusmStore<TState>(
   const deferredSyncEvents: NusmSyncEvent<TState>[] = [];
   const cleanupTasks: Array<() => void> = [];
   let syncCoordinator:
-    | ReturnType<typeof createNusmSyncCoordinator<TState>>
-    | undefined;
+    ReturnType<typeof createNusmSyncCoordinator<TState>> | undefined;
   let syncEventSequence = 0;
   let synchronizationRejectionCount = 0;
   let synchronizationRejectionWindow = 0;
@@ -240,11 +239,7 @@ export function createNusmStore<TState>(
     if (synchronizationRejectionCount >= 5) return;
     synchronizationRejectionCount += 1;
     const rejection = error instanceof Error ? error : new Error(String(error));
-    try {
-      reportError(rejection);
-    } catch {
-      // User error reporters must not suppress the rejection event.
-    }
+    reportError(rejection);
     emitSynchronizationEvent("synchronization_rejected", detail);
   };
   const store = new Store<TState>(
@@ -316,18 +311,12 @@ export function createNusmStore<TState>(
     }
     persistenceUnits.set(key, unit);
   };
-  const resolveKey = (params: {
-    kind: "entire" | "slice";
-    sliceKey?: string;
-  }): string => {
-    const key =
-      params.kind === "entire"
-        ? resolvedEntireKey
-        : params.sliceKey === undefined
-          ? undefined
-          : resolvedSliceKeys.get(params.sliceKey);
-    return key as string;
-  };
+  const resolveKey = (
+    params: { kind: "entire" } | { kind: "slice"; sliceKey: string },
+  ): string =>
+    (params.kind === "entire"
+      ? resolvedEntireKey
+      : resolvedSliceKeys.get(params.sliceKey)) as string;
   if (adapter) {
     if (strategy === "entire") {
       const key = resolveAdapterKey({ kind: "entire" });
@@ -640,11 +629,7 @@ export function createNusmStore<TState>(
       restrictedPersistenceKeys = undefined;
       scheduleStatePersistence(prevVal, currentVal, allowedKeys);
     });
-    cleanupTasks.push(
-      typeof subscription === "function"
-        ? subscription
-        : () => subscription.unsubscribe(),
-    );
+    cleanupTasks.push(() => subscription.unsubscribe());
   };
 
   const applyState = (nextState: TState) => {
@@ -1118,10 +1103,6 @@ export function createNusmStore<TState>(
       const validated = await validateExternalCandidate(merged, event);
       if (lifecycle.disposed) return;
       if (candidateGeneration !== externalStateGeneration) return;
-      if (
-        (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
-      )
-        return;
       if (validated.ok) applyExternalState(validated.value);
     } else {
       const slice = slices.find((candidate) => candidate.key === unit.sliceKey);
@@ -1148,10 +1129,6 @@ export function createNusmStore<TState>(
       );
       if (lifecycle.disposed) return;
       if (candidateGeneration !== externalStateGeneration) return;
-      if (
-        (persistenceKeyGenerations.get(event.key) ?? 0) !== observedGeneration
-      )
-        return;
       if (validated.ok) applyExternalState(validated.value);
     }
   };
@@ -1160,12 +1137,8 @@ export function createNusmStore<TState>(
     incoming: NusmSyncRevision,
     current: NusmSyncRevision,
   ) => {
-    const incomingEpoch = Number(incoming.epoch ?? "");
-    const currentEpoch = Number(current.epoch ?? "");
     const epochComparison =
-      Number.isFinite(incomingEpoch) && Number.isFinite(currentEpoch)
-        ? incomingEpoch - currentEpoch
-        : (incoming.epoch ?? "").localeCompare(current.epoch ?? "");
+      Number(incoming.epoch ?? "0") - Number(current.epoch ?? "0");
     return (
       epochComparison ||
       incoming.counter - current.counter ||
@@ -1234,8 +1207,7 @@ export function createNusmStore<TState>(
       },
       optimistic: syncOptimistic,
       sources: syncSources as
-        | import("./sync/types.js").NusmSyncSourceInput<TState>
-        | undefined,
+        import("./sync/types.js").NusmSyncSourceInput<TState> | undefined,
       storeId,
       validator: syncValidator,
     });
@@ -1314,12 +1286,6 @@ export function createNusmStore<TState>(
   const resolveSliceSynchronization = (
     persisted: unknown,
   ): "diverged" | "synchronized" => {
-    if (
-      typeof persisted !== "object" ||
-      persisted === null ||
-      Array.isArray(persisted)
-    )
-      return "diverged";
     for (const slice of slices) {
       const descriptor = Object.getOwnPropertyDescriptor(persisted, slice.key);
       if (!descriptor || !("value" in descriptor)) return "diverged";

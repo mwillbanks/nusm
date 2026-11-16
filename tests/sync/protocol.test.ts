@@ -7,6 +7,40 @@ import {
 } from "../../src/sync/protocol.js";
 
 describe("synchronization wire protocol", () => {
+  test("rejects short bytes and malformed key inputs", async () => {
+    await expect(createHmacKey(new Uint8Array(31))).rejects.toThrow(
+      "at least 32",
+    );
+    await expect(createHmacKey(null as unknown as CryptoKey)).rejects.toThrow(
+      "CryptoKey or Uint8Array",
+    );
+    const wrongHash = {
+      algorithm: { hash: "SHA-1", name: "HMAC" },
+      extractable: false,
+      type: "secret",
+      usages: ["sign", "verify"],
+    };
+    await expect(
+      createHmacKey(wrongHash as unknown as CryptoKey),
+    ).rejects.toThrow("HMAC-SHA-256");
+  });
+
+  test("rejects state with an unsupported object prototype", () => {
+    expect(() =>
+      eventToEnvelope(
+        {
+          eventId: "custom-object",
+          kind: "update",
+          sourceId: "peer",
+          state: new (class UnsupportedState {})(),
+          storeId: "store",
+        },
+        "sender",
+        "sender:custom-object",
+        DEFAULT_BROADCAST_LIMITS,
+      ),
+    ).toThrow("non-serializable object");
+  });
   test("rejects invalid CryptoKey inputs at the protocol boundary", async () => {
     const aes = await crypto.subtle.generateKey(
       { length: 256, name: "AES-GCM" },

@@ -1,0 +1,42 @@
+---
+title: Agent Skill
+description: Load guidance from the nusm version in your app.
+---
+
+nusm ships an Agent Skill with each version that includes the skill. It explains
+store lifetime, hydration, authenticated sync, React, and Devtools. The install
+also contains starter templates and a check for custom adapters.
+
+## Set up Intent
+
+Install `nusm` and add `@tanstack/intent` as a development dependency. Add this
+allowlist entry to your project's `package.json`:
+
+```json
+{
+  "intent": {
+    "skills": ["nusm#nusm"]
+  }
+}
+```
+
+Preserve any existing allowlist entries. Run the installed CLI from your project:
+
+```sh
+bun run intent list
+bun run intent load nusm#nusm
+```
+
+Ask your coding agent to load `nusm#nusm` before it edits your store setup.
+If your agent supports project guidance, run `bun run intent install` and review
+the guidance that Intent adds. Repeat the list and load checks after a nusm
+upgrade to confirm they use the installed version.
+
+## Check a custom adapter
+
+Export a test adapter from a module in your project. Run the script with Bun
+and pass the module path. Use test storage.
+
+```sh
+bun node_modules/nusm/skills/nusm/scripts/check-adapter.ts ./test-adapter.ts
+```

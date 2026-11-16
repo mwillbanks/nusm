@@ -14,7 +14,7 @@ export class NusmDevtoolsCore {
     this.version = 0;
   }
 
-  mount(element: HTMLElement, props: TanStackDevtoolsPluginProps) {
+  mount(element: HTMLElement, props: TanStackDevtoolsPluginProps): void {
     let entry = rootEntries.get(element);
     if (!entry) {
       entry = { root: createRoot(element), version: 0 };
@@ -26,7 +26,7 @@ export class NusmDevtoolsCore {
     entry.root.render(<NusmDevtoolsPanel {...props} />);
   }
 
-  unmount() {
+  unmount(): void {
     const element = this.element;
     const version = this.version;
     this.element = undefined;

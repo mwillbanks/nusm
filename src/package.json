@@ -1,10 +1,10 @@
 {
   "dependencies": {
-    "@fastify/deepmerge": "^3.2.2",
-    "@tanstack/devtools-event-client": "^0.5.0",
+    "@fastify/deepmerge": "^3.2.4",
+    "@tanstack/devtools-event-client": "^0.5.1",
     "@tanstack/pacer": "^0.23.1",
     "@tanstack/store": "^0.11.2",
-    "fast-equals": "^6.1.0",
+    "fast-equals": "^6.2.2",
     "superjson": "^2.2.6",
     "use-sync-external-store": "^1.7.0"
   },
@@ -18,11 +18,12 @@
     "node": ">=20"
   },
   "peerDependencies": {
-    "@tanstack/devtools": "^0.12.5 || ^0.13.0 || ^0.14.0 || ^0.15.0",
+    "@tanstack/devtools": "^0.12.5 || ^0.13.0 || ^0.14.0 || ^0.15.0 || ^0.16.0",
     "@tanstack/devtools-utils": "^0.6.0 || ^0.7.0",
     "lucide-react": ">=0.468.0",
     "react": ">=18.0.0",
-    "react-dom": ">=18.0.0"
+    "react-dom": ">=18.0.0",
+    "typescript": ">=5"
   },
   "peerDependenciesMeta": {
     "@tanstack/devtools": {
@@ -38,6 +39,9 @@
       "optional": true
     },
     "react-dom": {
+      "optional": true
+    },
+    "typescript": {
       "optional": true
     }
   },

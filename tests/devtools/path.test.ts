@@ -78,6 +78,9 @@ describe("devtools path operations", () => {
       enumerable: true,
       get: () => 1,
     });
+    expect(() => getValueAtPath(accessor, ["value"])).toThrow(
+      "Accessor properties",
+    );
     expect(() => setValueAtPath(accessor, ["other"], 2)).toThrow(
       "Accessor properties",
     );
@@ -94,7 +97,13 @@ describe("devtools path operations", () => {
     );
   });
 
-  test("creates a container when editing a primitive root", () => {
-    expect(setValueAtPath(1, ["value"], 2)).toEqual({ value: 2 });
+  test("creates containers when editing a nested path through a primitive", () => {
+    expect(setValueAtPath(1, ["items", 0], 2)).toEqual({ items: [2] });
+  });
+
+  test("rejects removal through a primitive", () => {
+    expect(() => removeValueAtPath({ value: 1 }, ["value", "child"])).toThrow(
+      "The selected path does not exist.",
+    );
   });
 });

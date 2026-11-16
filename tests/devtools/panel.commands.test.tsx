@@ -171,35 +171,58 @@ describe("panel commands", () => {
 
   test("reports copy failures and supports the clipboard fallback", async () => {
     const originalTarget = globalThis.__TANSTACK_EVENT_TARGET__;
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    const execCommand = Object.getOwnPropertyDescriptor(
+      document,
+      "execCommand",
+    );
     const target = relay();
     globalThis.__TANSTACK_EVENT_TARGET__ = target;
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText: () => Promise.reject(new Error("Clipboard denied")) },
-    });
-    const view = render(<NusmDevtoolsPanel devtoolsOpen theme="dark" />);
-    dispatch(target, "snapshot", snapshot("copy", "sessionStorage"));
-    fireEvent.click(view.getByRole("tab", { name: "memory" }));
-    fireEvent.click(view.getByRole("button", { name: "Copy location" }));
-    await act(async () => Promise.resolve());
-    expect(view.getByText("Clipboard denied")).toBeInTheDocument();
+    try {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: () => Promise.reject(new Error("Clipboard denied")),
+        },
+      });
+      const view = render(<NusmDevtoolsPanel devtoolsOpen theme="dark" />);
+      dispatch(target, "snapshot", snapshot("copy", "sessionStorage"));
+      fireEvent.click(view.getByRole("tab", { name: "memory" }));
+      fireEvent.click(view.getByRole("button", { name: "Copy location" }));
+      await act(async () => Promise.resolve());
+      expect(view.getByText("Clipboard denied")).toBeInTheDocument();
 
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: undefined,
-    });
-    Object.defineProperty(document, "execCommand", {
-      configurable: true,
-      value: () => true,
-    });
-    fireEvent.click(view.getByText("name"));
-    fireEvent.click(view.getByRole("button", { name: "Copy value" }));
-    await act(async () => Promise.resolve());
-    expect(view.getByText("Copied value")).toBeInTheDocument();
-    (() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: undefined,
+      });
+      let copied = false;
+      Object.defineProperty(document, "execCommand", {
+        configurable: true,
+        value: (command: string) => command === "copy" && copied,
+      });
+
+      fireEvent.click(view.getByRole("button", { name: "Copy location" }));
+      await act(async () => Promise.resolve());
+      expect(
+        view.getByText("Clipboard copy is unavailable."),
+      ).toBeInTheDocument();
+      expect(document.body.querySelector("textarea")).toBeNull();
+
+      copied = true;
+      fireEvent.click(view.getByText("name"));
+      fireEvent.click(view.getByRole("button", { name: "Copy value" }));
+      await act(async () => Promise.resolve());
+      expect(view.getByText("Copied value")).toBeInTheDocument();
+    } finally {
       cleanup();
       globalThis.__TANSTACK_EVENT_TARGET__ = originalTarget;
-    })();
+      if (clipboard) Object.defineProperty(navigator, "clipboard", clipboard);
+      else Reflect.deleteProperty(navigator, "clipboard");
+      if (execCommand)
+        Object.defineProperty(document, "execCommand", execCommand);
+      else Reflect.deleteProperty(document, "execCommand");
+    }
   });
 
   test("normalizes memory-only navigation and honors snapshot event caps", () => {

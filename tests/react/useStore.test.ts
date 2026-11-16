@@ -1,10 +1,36 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { render } from "@testing-library/react";
 import React, { act } from "react";
 import { createNusmStore } from "../../src";
 import { useStore } from "../../src/react";
 
 describe("useStore", () => {
+  test("cleans up a subscription returned as a function", () => {
+    const store = createNusmStore({ count: 0 });
+    const subscribe = store.subscribe.bind(store);
+    const unsubscribed: number[] = [];
+    const spy = spyOn(store, "subscribe").mockImplementation((notify) => {
+      const subscription = subscribe(notify);
+      const cleanup = () => {
+        subscription.unsubscribe();
+        unsubscribed.push(1);
+      };
+      return cleanup as unknown as ReturnType<typeof subscribe>;
+    });
+    function Counter() {
+      return React.createElement("span", null, useStore(store).count);
+    }
+
+    try {
+      const view = render(React.createElement(Counter));
+      expect(view.getByText("0")).toBeInTheDocument();
+      view.unmount();
+      expect(unsubscribed).toEqual([1]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   test("stabilizes allocated selections between store updates", () => {
     const store = createNusmStore({ count: 1 });
     let commits = 0;
