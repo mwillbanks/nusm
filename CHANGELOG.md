@@ -1,6 +1,6 @@
 # Changelog
 
-## NEXT_RELEASE
+## 1.3.0
 
 ### Features
 
